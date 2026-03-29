@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>POLICE - Emergency Monitoring</title>
+    <title>PNP - Police Monitoring</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #e8eaf6; margin: 0; }
         .nav { background: #1a237e; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: relative; }
@@ -11,15 +11,13 @@
         .container { max-width: 800px; margin: auto; padding: 10px; }
         .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #3f51b5; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .card.resolved { opacity: 0.6; border-left-color: #4caf50; }
+        .time-ago { color: #1a237e; font-weight: bold; }
         .btn-maps { display: block; background: #3f51b5; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
         .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
     </style>
 </head>
 <body>
-    <div class="nav">
-        🚓 POLICE EMERGENCY DASHBOARD
-        <span id="connection-status" class="status-indicator">ONLINE</span>
-    </div>
+    <div class="nav">🚓 PNP POLICE DASHBOARD <span id="connection-status" class="status-indicator">ONLINE</span></div>
     <div class="container" id="alerts-list"></div>
 
     <script type="module">
@@ -30,14 +28,19 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- RECONNECTION LOGIC ---
+        function getTimeAgo(timestamp) {
+            if (!timestamp) return "Just now";
+            const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
+            let interval = Math.floor(seconds / 60);
+            return interval >= 1 ? interval + "m ago" : "Just now";
+        }
+
         const statusEl = document.getElementById('connection-status');
         window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
-        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE - RECONNECTING..."; statusEl.classList.add('status-offline'); });
+        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
 
         const siren = new Audio('siren.mp3');
-        function showNotification(title, body) { if (Notification.permission === "granted") { new Notification(title, { body: body }); } }
-        if (Notification.permission !== "granted") { Notification.requestPermission(); }
+        if (Notification.permission !== "granted") Notification.requestPermission();
         window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
 
         let isInitialLoad = true;
@@ -47,11 +50,10 @@
             const list = document.getElementById('alerts-list');
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-                    siren.play().catch(e => console.log("Sound error"));
-                    showNotification("🚨 POLICE ASSISTANCE", `Sender: ${change.doc.data().sender}`);
+                    siren.play().catch(e => {});
+                    if (Notification.permission === "granted") new Notification("🚨 POLICE ASSISTANCE", { body: `Sender: ${change.doc.data().sender}` });
                 }
             });
-
             isInitialLoad = false;
             list.innerHTML = "";
             snapshot.forEach((alertDoc) => {
@@ -60,9 +62,9 @@
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
                 card.innerHTML = `
-                    <div style="color:#1a237e; font-weight:bold;">${data.status === "Resolved" ? '✅ RESOLVED' : '🚨 POLICE ASSISTANCE REQUIRED'}</div>
+                    <div style="color:#1a237e; font-weight:bold;">${data.status === "Resolved" ? '✅ RESOLVED' : '🚨 EMERGENCY HELP'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
-                    <div class="info"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
+                    <div class="info"><strong>Received:</strong> <span class="time-ago">${getTimeAgo(data.timestamp)}</span></div>
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 RESPOND TO LOCATION</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
