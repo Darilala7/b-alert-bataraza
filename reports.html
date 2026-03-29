@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>B-ALERT SOS - Weekly Summary Report</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #e65100; padding-bottom: 10px; }
+        h2 { color: #e65100; margin: 0; }
+        .btn-print { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #333; }
+        
+        .badge { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; color: white; }
+        .bg-medical { background: #2196f3; }
+        .bg-fire { background: #f44336; }
+        .bg-police { background: #1a237e; }
+        
+        @media print {
+            .btn-print { display: none; }
+            body { background: white; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h2>LGU BATARAZA EMERGENCY REPORTS</h2>
+            <p style="margin: 5px 0 0; color: #666;">Summary of Resolved Emergency Alerts</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">🖨️ PRINT REPORT</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date & Time</th>
+                <th>Category</th>
+                <th>Sender</th>
+                <th>Location (Lat, Long)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="report-table">
+            </tbody>
+    </table>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
+            projectId: "b-alert-bataraza"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Kukunin lang natin ang mga "Resolved" na alerts
+        const q = query(
+            collection(db, "alerts"), 
+            where("status", "==", "Resolved"),
+            orderBy("timestamp", "desc")
+        );
+
+        onSnapshot(q, (snapshot) => {
+            const tableBody = document.getElementById('report-table');
+            tableBody.innerHTML = "";
+
+            snapshot.forEach((alertDoc) => {
+                const data = alertDoc.data();
+                const date = data.timestamp ? data.timestamp.toDate().toLocaleString() : "N/A";
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${date}</td>
+                    <td><span class="badge bg-${data.category.toLowerCase()}">${data.category.toUpperCase()}</span></td>
+                    <td>${data.sender}</td>
+                    <td>${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}</td>
+                    <td style="color: green; font-weight: bold;">✓ RESOLVED</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+    </script>
+</body>
+</html>
