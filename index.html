@@ -10,21 +10,39 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; background-color: #f4f4f4; }
         .header { background-color: #e65100; color: white; padding: 20px; font-size: 24px; font-weight: bold; }
-        .container { padding: 50px 20px; }
+        .container { padding: 30px 20px; }
+        
+        /* Category Selection Styles */
+        .category-label { font-weight: bold; margin-bottom: 15px; color: #333; display: block; }
+        .categories { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .chip { 
+            padding: 10px 20px; border-radius: 20px; border: 2px solid #ccc; 
+            background: white; cursor: pointer; font-weight: bold; transition: 0.3s;
+        }
+        .chip.active { background: #e65100; color: white; border-color: #e65100; }
+
         .sos-btn { 
             background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
             width: 250px; height: 250px; border-radius: 50%; 
             font-size: 50px; font-weight: bold; cursor: pointer;
             box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
             transition: transform 0.2s;
+            margin-top: 10px;
         }
         .sos-btn:active { transform: scale(0.95); }
-        #status { margin-top: 30px; font-size: 18px; color: #555; }
+        #status { margin-top: 30px; font-size: 18px; color: #555; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="header">B-ALERT BATARAZA</div>
     <div class="container">
+        <span class="category-label">Select Type of Emergency:</span>
+        <div class="categories" id="categoryGroup">
+            <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
+            <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
+            <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
+        </div>
+
         <button class="sos-btn" onclick="triggerSOS()">SOS</button>
         <p id="status">Ready to send emergency alert</p>
     </div>
@@ -45,41 +63,55 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // 1. DEFINE ANG VARIABLE PARA SA CATEGORY
+        let selectedCategory = "Medical"; 
+
+        // 2. FUNCTION PARA SA PAGPILI NG CATEGORY
+        window.selectCategory = function(cat, element) {
+            selectedCategory = cat;
+            // Alisin ang 'active' class sa lahat at ilagay sa pinili
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            element.classList.add('active');
+            
+            if (navigator.vibrate) { navigator.vibrate(50); } // Konting vibrate lang pag pindot
+        };
+
         window.triggerSOS = function() {
-            // VIBRATION: Mag-vibrate ang phone ng 500ms
             if (navigator.vibrate) { navigator.vibrate(500); }
 
             const statusText = document.getElementById('status');
-            statusText.innerText = "Locating & Sending SOS...";
+            statusText.innerText = `Locating & Sending ${selectedCategory} SOS...`;
             statusText.style.color = "#e65100";
 
-            // BACKUP: Bataraza Central School area (Hindi na sa dagat)
             const backupLat = 8.3542; 
             const backupLng = 117.3515; 
 
             const sendToFirebase = async (lat, lng, isRealGPS) => {
-            try {
-                await addDoc(collection(db, "alerts"), {
-                sender: "Ella - Student OJT",
-                category: selectedCategory, // ETO ANG DINAGDAG NATING FIELD
-                latitude: lat,
-                longitude: lng,
-                status: "Pending",
-                has_real_gps: isRealGPS,
-                timestamp: serverTimestamp()
-            });
-                statusText.innerText = `✅ ${selectedCategory} SOS SENT!`;
-                statusText.style.color = "green";
-            } catch (e) {
-                statusText.innerText = "❌ Error sending alert.";
-                console.error(e);
-            }
-        };
+                try {
+                    await addDoc(collection(db, "alerts"), {
+                        sender: "Ella - Student OJT",
+                        category: selectedCategory, // GAGANA NA ITO DAHIL DEFINED NA SA TAAS
+                        latitude: lat,
+                        longitude: lng,
+                        status: "Pending",
+                        has_real_gps: isRealGPS,
+                        timestamp: serverTimestamp()
+                    });
+                    statusText.innerText = `✅ ${selectedCategory} SOS SENT!`;
+                    statusText.style.color = "green";
+                } catch (e) {
+                    statusText.innerText = "❌ Error sending alert.";
+                    console.error("Firebase Error:", e);
+                }
+            };
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
-                    (error) => { sendToFirebase(backupLat, backupLng, false); },
+                    (error) => { 
+                        console.warn("GPS failed, using backup.");
+                        sendToFirebase(backupLat, backupLng, false); 
+                    },
                     { enableHighAccuracy: true, timeout: 10000 }
                 );
             } else {
