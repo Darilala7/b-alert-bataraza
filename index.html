@@ -62,126 +62,132 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
-            authDomain: "b-alert-bataraza.firebaseapp.com",
-            projectId: "b-alert-bataraza",
-            storageBucket: "b-alert-bataraza.firebasestorage.app",
-            messagingSenderId: "482644532182",
-            appId: "1:482644532182:web:08c5ad48bb227e0b4fe277"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
+        authDomain: "b-alert-bataraza.firebaseapp.com",
+        projectId: "b-alert-bataraza",
+        storageBucket: "b-alert-bataraza.firebasestorage.app",
+        messagingSenderId: "482644532182",
+        appId: "1:482644532182:web:08c5ad48bb227e0b4fe277"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        let selectedCategory = "Medical";
-        let lastKnownPosition = null;
-        let countdownTimer = null;
+    let selectedCategory = "Medical";
+    let lastKnownPosition = null;
+    let countdownTimer = null;
+    let watchId = null; // Para sa background tracking
 
-        // PRE-FETCH: Kumuha agad ng lokasyon pagka-load
-        window.onload = () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => { lastKnownPosition = pos; },
-                    null,
-                    { enableHighAccuracy: true }
-                );
-            }
-        };
+    // 1. GPS WARM-UP: Pagkabukas pa lang, i-track na ang location nang tuluy-tuloy
+    window.onload = () => {
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => { 
+                    lastKnownPosition = pos; 
+                    console.log("Location updated:", pos.coords.accuracy);
+                },
+                null,
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+        }
+    };
 
-        window.selectCategory = function(cat, element) {
-            selectedCategory = cat;
-            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            element.classList.add('active');
-            if (navigator.vibrate) { navigator.vibrate(50); }
-        };
+    window.selectCategory = function(cat, element) {
+        selectedCategory = cat;
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        element.classList.add('active');
+        if (navigator.vibrate) { navigator.vibrate(50); }
+    };
 
-        window.startSOSCountdown = function() {
-            let timeLeft = 3;
-            const statusText = document.getElementById('status');
-            const sosText = document.getElementById('sos-text');
-            const countdownDisplay = document.getElementById('countdown-display');
-            const cancelBtn = document.getElementById('cancelBtn');
-            const mainBtn = document.getElementById('mainSosBtn');
+    window.startSOSCountdown = function() {
+        let timeLeft = 3;
+        const statusText = document.getElementById('status');
+        const sosText = document.getElementById('sos-text');
+        const countdownDisplay = document.getElementById('countdown-display');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const mainBtn = document.getElementById('mainSosBtn');
 
-            sosText.style.display = 'none';
-            countdownDisplay.style.display = 'block';
+        sosText.style.display = 'none';
+        countdownDisplay.style.display = 'block';
+        countdownDisplay.innerText = timeLeft;
+        cancelBtn.style.display = 'block';
+        mainBtn.onclick = null; 
+
+        statusText.innerText = `Preparing ${selectedCategory} Alert...`;
+        
+        countdownTimer = setInterval(() => {
+            timeLeft--;
             countdownDisplay.innerText = timeLeft;
-            cancelBtn.style.display = 'block';
-            mainBtn.onclick = null; 
+            if (navigator.vibrate) { navigator.vibrate(100); }
 
-            statusText.innerText = `Sending ${selectedCategory} alert in...`;
-            
-            countdownTimer = setInterval(() => {
-                timeLeft--;
-                countdownDisplay.innerText = timeLeft;
-                if (navigator.vibrate) { navigator.vibrate(100); }
-
-                if (timeLeft <= 0) {
-                    clearInterval(countdownTimer);
-                    triggerSOS();
-                }
-            }, 1000);
-        };
-
-        window.cancelSOS = function() {
-            clearInterval(countdownTimer);
-            document.getElementById('sos-text').style.display = 'block';
-            document.getElementById('countdown-display').style.display = 'none';
-            document.getElementById('cancelBtn').style.display = 'none';
-            document.getElementById('status').innerText = "SOS Cancelled.";
-            setTimeout(() => {
-                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-                document.getElementById('status').innerText = "Ready to send emergency alert";
-            }, 1000);
-        };
-
-        const triggerSOS = () => {
-            const statusText = document.getElementById('status');
-            document.getElementById('countdown-display').style.display = 'none';
-            document.getElementById('sos-text').style.display = 'block';
-            document.getElementById('sos-text').innerText = "SENDING";
-            document.getElementById('cancelBtn').style.display = 'none';
-            
-            statusText.innerText = "Locating & Sending SOS...";
-
-            const backupLat = 8.3542; 
-            const backupLng = 117.3515; 
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
-                    (err) => { sendToFirebase(backupLat, backupLng, false); },
-                    { enableHighAccuracy: true, timeout: 8000 }
-                );
-            } else {
-                sendToFirebase(backupLat, backupLng, false);
+            if (timeLeft <= 0) {
+                clearInterval(countdownTimer);
+                triggerSOS();
             }
-        };
+        }, 1000);
+    };
 
-        const sendToFirebase = async (lat, lng, isRealGPS) => {
-            try {
-                await addDoc(collection(db, "alerts"), {
-                    sender: "Ella - Student OJT",
-                    category: selectedCategory,
-                    latitude: lat,
-                    longitude: lng,
-                    status: "Pending",
-                    has_real_gps: isRealGPS,
-                    timestamp: serverTimestamp()
-                });
-                document.getElementById('status').innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
-                document.getElementById('status').style.color = "green";
-                document.getElementById('sos-text').innerText = "SOS";
-                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-            } catch (e) {
-                document.getElementById('status').innerText = "❌ Error sending alert.";
-                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-            }
-        };
-    </script>
+    window.cancelSOS = function() {
+        clearInterval(countdownTimer);
+        document.getElementById('sos-text').style.display = 'block';
+        document.getElementById('countdown-display').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('status').innerText = "SOS Cancelled.";
+        setTimeout(() => {
+            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+            document.getElementById('status').innerText = "Ready to send emergency alert";
+        }, 1000);
+    };
+
+    const triggerSOS = () => {
+        const statusText = document.getElementById('status');
+        document.getElementById('countdown-display').style.display = 'none';
+        document.getElementById('sos-text').style.display = 'block';
+        document.getElementById('sos-text').innerText = "SENDING";
+        document.getElementById('cancelBtn').style.display = 'none';
+        
+        statusText.innerText = "Finalizing Location...";
+
+        const backupLat = 8.3542; 
+        const backupLng = 117.3515; 
+
+        // 2. SMART SEND: Gamitin ang pinaka-updated na position mula sa watchPosition
+        if (lastKnownPosition) {
+            sendToFirebase(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude, true);
+        } else {
+            // Last resort kung wala talagang nasagap sa background
+            navigator.geolocation.getCurrentPosition(
+                (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
+                (err) => { sendToFirebase(backupLat, backupLng, false); },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        }
+    };
+
+    const sendToFirebase = async (lat, lng, isRealGPS) => {
+        try {
+            await addDoc(collection(db, "alerts"), {
+                sender: "Ella - Student OJT",
+                category: selectedCategory,
+                latitude: lat,
+                longitude: lng,
+                status: "Pending",
+                has_real_gps: isRealGPS,
+                timestamp: serverTimestamp()
+            });
+            document.getElementById('status').innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
+            document.getElementById('status').style.color = "green";
+            document.getElementById('sos-text').innerText = "SOS";
+            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+        } catch (e) {
+            document.getElementById('status').innerText = "❌ Error sending alert.";
+            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+        }
+    };
+</script>
 </body>
 </html>
