@@ -33,7 +33,7 @@
         // --- RECONNECTION LOGIC ---
         const statusEl = document.getElementById('connection-status');
         window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
-        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE - CHECK CONNECTION"; statusEl.classList.add('status-offline'); });
+        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE - RECONNECTING..."; statusEl.classList.add('status-offline'); });
 
         const siren = new Audio('siren.mp3');
         function showNotification(title, body) { if (Notification.permission === "granted") { new Notification(title, { body: body }); } }
