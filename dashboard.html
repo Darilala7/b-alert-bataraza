@@ -2,107 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B-ALERT SOS</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
+    <title>MDRRMO - Medical Monitoring</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; background-color: #f4f4f4; }
-        .header { background-color: #e65100; color: white; padding: 20px; font-size: 24px; font-weight: bold; }
-        .container { padding: 30px 20px; }
-        
-        /* Category Styles */
-        .category-label { font-weight: bold; margin-bottom: 15px; color: #333; display: block; }
-        .categories { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
-        .chip { 
-            padding: 10px 20px; border-radius: 20px; border: 2px solid #ccc; 
-            background: white; cursor: pointer; font-weight: bold; transition: 0.3s;
-        }
-        .chip.active { background: #e65100; color: white; border-color: #e65100; }
-
-        .sos-btn { 
-            background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
-            width: 220px; height: 220px; border-radius: 50%; 
-            font-size: 45px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
-            transition: transform 0.2s;
-        }
-        .sos-btn:active { transform: scale(0.95); }
-        #status { margin-top: 25px; font-size: 18px; color: #555; font-weight: bold; }
+        body { font-family: 'Segoe UI', sans-serif; background: #e3f2fd; margin: 0; }
+        .nav { background: #1565c0; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; }
+        .container { max-width: 800px; margin: auto; padding: 10px; }
+        .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #2196f3; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .card.resolved { opacity: 0.6; border-left-color: #4caf50; }
+        .btn-maps { display: block; background: #1565c0; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
+        .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
     </style>
 </head>
 <body>
-    <div class="header">B-ALERT BATARAZA</div>
-    <div class="container">
-        <span class="category-label">Anong uri ng emergency?</span>
-        <div class="categories" id="categoryGroup">
-            <div class="chip active" onclick="selectCategory('General', this)">General</div>
-            <div class="chip" onclick="selectCategory('Medical', this)">Medical 🏥</div>
-            <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
-            <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
-        </div>
-
-        <button class="sos-btn" onclick="triggerSOS()">SOS</button>
-        <p id="status">Ready to send alert</p>
-    </div>
+    <div class="nav">🏥 MDRRMO MEDICAL EMERGENCY DASHBOARD</div>
+    <div class="container" id="alerts-list"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
-            projectId: "b-alert-bataraza",
-        };
-
+        const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let selectedCategory = "General";
+        // FILTER: Medical alerts lang
+        const q = query(collection(db, "alerts"), where("category", "==", "Medical"), orderBy("timestamp", "desc"));
 
-        window.selectCategory = function(cat, element) {
-            selectedCategory = cat;
-            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            element.classList.add('active');
-            if (navigator.vibrate) { navigator.vibrate(50); }
-        }
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('alerts-list');
+            list.innerHTML = "";
+            snapshot.forEach((alertDoc) => {
+                const data = alertDoc.data();
+                const id = alertDoc.id;
+                const isResolved = data.status === "Resolved";
+                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
-        window.triggerSOS = function() {
-            if (navigator.vibrate) { navigator.vibrate([100, 50, 100]); }
-            const statusText = document.getElementById('status');
-            statusText.innerText = `Sending ${selectedCategory} SOS...`;
+                const card = document.createElement('div');
+                card.className = `card ${isResolved ? 'resolved' : ''}`;
+                card.innerHTML = `
+                    <div style="color:#1565c0; font-weight:bold;">🚑 MEDICAL EMERGENCY REPORTED</div>
+                    <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
+                    <div style="margin:5px 0;"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW PATIENT LOCATION</a>
+                    ${!isResolved ? `<button class="btn-resolved" onclick="markAsResolved('${id}')">MARK AS RESOLVED</button>` : '✅ RESOLVED'}
+                `;
+                list.appendChild(card);
+            });
+        });
 
-            const backupLat = 8.3542; 
-            const backupLng = 117.3515; 
-
-            const sendToFirebase = async (lat, lng, isRealGPS) => {
-                try {
-                    await addDoc(collection(db, "alerts"), {
-                        sender: "Ella - Student OJT",
-                        category: selectedCategory, // Eto yung bagong data
-                        latitude: lat,
-                        longitude: lng,
-                        status: "Pending",
-                        has_real_gps: isRealGPS,
-                        timestamp: serverTimestamp()
-                    });
-                    statusText.innerText = `✅ ${selectedCategory} SOS SENT!`;
-                    statusText.style.color = "green";
-                } catch (e) {
-                    statusText.innerText = "❌ Error sending alert.";
-                }
-            };
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (p) => { sendToFirebase(p.coords.latitude, p.coords.longitude, true); },
-                    (e) => { sendToFirebase(backupLat, backupLng, false); },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                sendToFirebase(backupLat, backupLng, false);
-            }
-        };
+        window.markAsResolved = async (id) => { await updateDoc(doc(db, "alerts", id), { status: "Resolved" }); };
     </script>
 </body>
 </html>
