@@ -6,7 +6,7 @@
     <title>B-ALERT SOS</title>
     <style>
         :root { --primary: #e65100; --danger: #b71c1c; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; }
         
         /* Registration Overlay */
@@ -26,22 +26,44 @@
         .sos-btn { 
             background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
             width: 220px; height: 220px; border-radius: 50%; font-size: 40px; font-weight: bold;
-            box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
+            box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4); transition: transform 0.2s;
         }
+        .sos-btn:active { transform: scale(0.95); }
+        
         .chip-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        .chip { padding: 10px 20px; border-radius: 20px; border: 1px solid #ccc; background: white; font-size: 14px; }
-        .chip.active { background: var(--primary); color: white; }
+        .chip { padding: 10px 20px; border-radius: 20px; border: 1px solid #ccc; background: white; font-size: 14px; transition: 0.3s; }
+        .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        .action-btn { background: #eee; border: none; padding: 10px 20px; border-radius: 10px; margin-top: 10px; font-weight: bold; }
+        .action-btn { background: #eee; border: none; padding: 12px 20px; border-radius: 10px; margin-top: 10px; font-weight: bold; cursor: pointer; }
+
+        /* Emergency Lock Overlay */
+        #lock-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); color: white; z-index: 1000;
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 20px; box-sizing: border-box;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333; border-top: 5px solid var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
+    <div id="lock-overlay">
+        <div class="spinner" id="loading-spinner"></div>
+        <h1 id="lock-header" style="margin: 0;">SENDING SOS...</h1>
+        <p id="lock-msg" style="font-size: 18px; line-height: 1.5;">Please wait. Communicating with Bataraza Responders.</p>
+        <div style="margin-top: 50px; color: #666; font-size: 14px;">B-ALERT BATARAZA EMERGENCY SYSTEM</div>
+    </div>
+
     <div id="registration-overlay">
         <h2>User Verification</h2>
-        <p>Mangyaring ilagay ang iyong impormasyon para sa mabilis na pag-responde.</p>
+        <p style="color: #666; text-align: center;">Kailangan ang iyong impormasyon para sa mabilis at tamang pag-responde.</p>
         <input type="text" id="user-name" placeholder="Buong Pangalan (Full Name)">
-        <input type="tel" id="user-phone" placeholder="Phone Number (09123456789)">
+        <input type="tel" id="user-phone" placeholder="Phone Number (e.g. 09123456789)">
         <button class="save-btn" onclick="saveUserInfo()">PROCEED TO APP</button>
     </div>
 
@@ -77,7 +99,6 @@
         let selectedCategory = "Medical";
         let capturedBase64 = null;
 
-        // Check if user is already registered
         window.onload = () => {
             if(localStorage.getItem('b_alert_user')) {
                 document.getElementById('registration-overlay').style.display = 'none';
@@ -85,12 +106,12 @@
         };
 
         window.saveUserInfo = () => {
-            const name = document.getElementById('user-name').value;
-            const phone = document.getElementById('user-phone').value;
+            const name = document.getElementById('user-name').value.trim();
+            const phone = document.getElementById('user-phone').value.trim();
             if(name && phone) {
                 localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
                 document.getElementById('registration-overlay').style.display = 'none';
-            } else { alert("Please fill up all fields."); }
+            } else { alert("Mangyaring punan ang lahat ng fields."); }
         };
 
         window.selectCat = (cat, el) => {
@@ -105,7 +126,7 @@
                 reader.onload = (e) => {
                     document.getElementById('photo-preview').src = e.target.result;
                     document.getElementById('photo-preview').style.display = 'block';
-                    capturedBase64 = e.target.result; // Proof image
+                    capturedBase64 = e.target.result;
                 };
                 reader.readAsDataURL(input.files[0]);
             }
@@ -114,7 +135,7 @@
         window.startCountdown = () => {
             let timer = 3;
             const btn = document.getElementById('mainSosBtn');
-            const status = document.getElementById('status');
+            btn.onclick = null; // Disable click during countdown
             
             const interval = setInterval(() => {
                 btn.innerText = timer;
@@ -127,21 +148,46 @@
         };
 
         const triggerSOS = () => {
+            const overlay = document.getElementById('lock-overlay');
+            overlay.style.display = 'flex'; // LOCK THE SCREEN
+            
             const userInfo = JSON.parse(localStorage.getItem('b_alert_user'));
+
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                await addDoc(collection(db, "alerts"), {
-                    sender: userInfo.name,
-                    phone: userInfo.phone,
-                    category: selectedCategory,
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    photo_proof: capturedBase64 || "No photo",
-                    status: "Pending",
-                    timestamp: serverTimestamp()
-                });
-                document.getElementById('status').innerText = "ALERT SENT!";
+                try {
+                    await addDoc(collection(db, "alerts"), {
+                        sender: userInfo.name,
+                        phone: userInfo.phone,
+                        category: selectedCategory,
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude,
+                        photo_proof: capturedBase64 || "No photo",
+                        status: "Pending",
+                        timestamp: serverTimestamp()
+                    });
+
+                    // Update UI upon success
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    document.getElementById('lock-header').innerText = "HELP IS ON THE WAY!";
+                    document.getElementById('lock-header').style.color = "#4caf50";
+                    document.getElementById('lock-msg').innerHTML = `
+                        Alert received by <b>${selectedCategory.toUpperCase()}</b> Department.<br><br>
+                        Responders have your location.<br>
+                        Stay where you are and stay safe.
+                    `;
+
+                } catch (e) {
+                    alert("System Error. Check your internet and try again.");
+                    overlay.style.display = 'none';
+                    document.getElementById('mainSosBtn').onclick = startCountdown;
+                    document.getElementById('mainSosBtn').innerText = "SOS";
+                }
+            }, (err) => {
+                alert("GPS Error. Please enable Location/GPS to send SOS.");
+                overlay.style.display = 'none';
+                document.getElementById('mainSosBtn').onclick = startCountdown;
                 document.getElementById('mainSosBtn').innerText = "SOS";
-            });
+            }, { enableHighAccuracy: true });
         };
     </script>
 </body>
