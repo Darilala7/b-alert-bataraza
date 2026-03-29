@@ -46,40 +46,44 @@
         const db = getFirestore(app);
 
         window.triggerSOS = function() {
-    const statusText = document.getElementById('status');
-    statusText.innerText = "Locating...";
+            // VIBRATION: Mag-vibrate ang phone ng 500ms
+            if (navigator.vibrate) { navigator.vibrate(500); }
 
-    // Eto ang tamang Bataraza Town Proper (hindi na sa dagat)
-    const backupLat = 8.3542; 
-    const backupLng = 117.3515; 
+            const statusText = document.getElementById('status');
+            statusText.innerText = "Locating & Sending SOS...";
+            statusText.style.color = "#e65100";
 
-    const sendToFirebase = async (lat, lng, isRealGPS) => {
-        try {
-            await addDoc(collection(db, "alerts"), {
-                sender: "Ella - Student OJT",
-                latitude: lat,
-                longitude: lng,
-                status: "Pending",
-                has_real_gps: isRealGPS,
-                timestamp: serverTimestamp()
-            });
-            statusText.innerText = isRealGPS ? "✅ SOS SENT (GPS)!" : "✅ SOS SENT (Backup Loc)!";
-            statusText.style.color = "green";
-        } catch (e) {
-            statusText.innerText = "❌ Error.";
-        }
-    };
+            // BACKUP: Bataraza Central School area (Hindi na sa dagat)
+            const backupLat = 8.3542; 
+            const backupLng = 117.3515; 
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
-            (error) => { sendToFirebase(backupLat, backupLng, false); }, // Pag error, sa bayan ang turo
-            { enableHighAccuracy: true, timeout: 10000 } // Tinaasan natin ang timeout sa 10 seconds
-        );
-    } else {
-        sendToFirebase(backupLat, backupLng, false);
-    }
-};
+            const sendToFirebase = async (lat, lng, isRealGPS) => {
+                try {
+                    await addDoc(collection(db, "alerts"), {
+                        sender: "Ella - Student OJT",
+                        latitude: lat,
+                        longitude: lng,
+                        status: "Pending",
+                        has_real_gps: isRealGPS,
+                        timestamp: serverTimestamp()
+                    });
+                    statusText.innerText = isRealGPS ? "✅ SOS SENT (Live GPS)!" : "✅ SOS SENT (Backup Loc)!";
+                    statusText.style.color = "green";
+                } catch (e) {
+                    statusText.innerText = "❌ Database Error.";
+                }
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
+                    (error) => { sendToFirebase(backupLat, backupLng, false); },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                sendToFirebase(backupLat, backupLng, false);
+            }
+        };
     </script>
 </body>
 </html>
