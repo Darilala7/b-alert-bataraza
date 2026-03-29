@@ -31,13 +31,15 @@
 
         // --- SIREN & AUDIO LOGIC ---
         const siren = new Audio('siren.mp3');
+        siren.preload = 'auto';
 
-        // Unlock audio on first click (Kailangan ito ng Chrome para tumunog ang siren)
+        // Unlock audio on first click
         window.addEventListener('click', () => {
             siren.play().then(() => {
                 siren.pause();
                 siren.currentTime = 0;
-            }).catch(e => console.log("Audio ready."));
+                console.log("🔊 Siren Audio Unlocked!");
+            }).catch(e => console.log("Audio waiting for user..."));
         }, { once: true });
 
         let isInitialLoad = true;
@@ -48,11 +50,10 @@
             const list = document.getElementById('alerts-list');
 
             snapshot.docChanges().forEach((change) => {
-                // Tutunog lang kung may bagong record at "Pending" ang status
                 if (change.type === "added" && !isInitialLoad) {
                     const alertData = change.doc.data();
                     if (alertData.status === "Pending") {
-                        siren.play().catch(e => console.log("Click the page first to enable siren."));
+                        siren.play().catch(e => console.log("Interaction needed."));
                     }
                 }
             });
@@ -65,7 +66,7 @@
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
                 
-                // FIXED: Standard Google Maps URL format
+                // FIXED: Tama na ang interpolation `${}`
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
                 const card = document.createElement('div');
