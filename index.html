@@ -26,12 +26,11 @@
             font-size: 50px; font-weight: bold; cursor: pointer;
             box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
             transition: transform 0.2s;
-            margin-top: 10px;
-            display: flex; align-items: center; justify-content: center; margin: 10px auto;
+            margin: 10px auto;
+            display: flex; align-items: center; justify-content: center;
         }
         .sos-btn:active { transform: scale(0.95); }
         
-        /* Cancel Button Style */
         .cancel-btn {
             display: none; background: #555; color: white; border: none;
             padding: 15px 40px; border-radius: 30px; font-size: 18px;
@@ -46,7 +45,7 @@
     <div class="header">B-ALERT BATARAZA</div>
     <div class="container">
         <span class="category-label">Select Type of Emergency:</span>
-        <div class="categories" id="categoryGroup">
+        <div class="categories">
             <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
             <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
             <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
@@ -81,14 +80,14 @@
         let selectedCategory = "Medical";
         let lastKnownPosition = null;
         let countdownTimer = null;
-        let timeLeft = 3;
 
+        // PRE-FETCH: Kumuha agad ng lokasyon pagka-load
         window.onload = () => {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
+                navigator.geolocation.getCurrentPosition(
                     (pos) => { lastKnownPosition = pos; },
-                    (err) => { console.warn("Background tracking active."); },
-                    { enableHighAccuracy: true, maximumAge: 10000 }
+                    null,
+                    { enableHighAccuracy: true }
                 );
             }
         };
@@ -101,19 +100,18 @@
         };
 
         window.startSOSCountdown = function() {
+            let timeLeft = 3;
             const statusText = document.getElementById('status');
             const sosText = document.getElementById('sos-text');
             const countdownDisplay = document.getElementById('countdown-display');
             const cancelBtn = document.getElementById('cancelBtn');
             const mainBtn = document.getElementById('mainSosBtn');
 
-            // Reset countdown
-            timeLeft = 3;
             sosText.style.display = 'none';
             countdownDisplay.style.display = 'block';
             countdownDisplay.innerText = timeLeft;
             cancelBtn.style.display = 'block';
-            mainBtn.onclick = null; // Disable click during countdown
+            mainBtn.onclick = null; 
 
             statusText.innerText = `Sending ${selectedCategory} alert in...`;
             
@@ -135,44 +133,36 @@
             document.getElementById('countdown-display').style.display = 'none';
             document.getElementById('cancelBtn').style.display = 'none';
             document.getElementById('status').innerText = "SOS Cancelled.";
-            document.getElementById('status').style.color = "#555";
-            
-            // Re-enable the main button
             setTimeout(() => {
                 document.getElementById('mainSosBtn').onclick = startSOSCountdown;
                 document.getElementById('status').innerText = "Ready to send emergency alert";
-            }, 1500);
+            }, 1000);
         };
 
-        const triggerSOS = async () => {
+        const triggerSOS = () => {
             const statusText = document.getElementById('status');
-            const countdownDisplay = document.getElementById('countdown-display');
-            const cancelBtn = document.getElementById('cancelBtn');
-
-            countdownDisplay.style.display = 'none';
+            document.getElementById('countdown-display').style.display = 'none';
             document.getElementById('sos-text').style.display = 'block';
-            document.getElementById('sos-text').innerText = "SENDING...";
-            cancelBtn.style.display = 'none';
+            document.getElementById('sos-text').innerText = "SENDING";
+            document.getElementById('cancelBtn').style.display = 'none';
             
             statusText.innerText = "Locating & Sending SOS...";
-            statusText.style.color = "#e65100";
 
             const backupLat = 8.3542; 
             const backupLng = 117.3515; 
 
-            if (lastKnownPosition && lastKnownPosition.coords.accuracy < 100) {
-                await sendToFirebase(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude, true);
-            } else {
+            if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
                     (err) => { sendToFirebase(backupLat, backupLng, false); },
-                    { enableHighAccuracy: true, timeout: 5000 }
+                    { enableHighAccuracy: true, timeout: 8000 }
                 );
+            } else {
+                sendToFirebase(backupLat, backupLng, false);
             }
         };
 
         const sendToFirebase = async (lat, lng, isRealGPS) => {
-            const statusText = document.getElementById('status');
             try {
                 await addDoc(collection(db, "alerts"), {
                     sender: "Ella - Student OJT",
@@ -183,13 +173,12 @@
                     has_real_gps: isRealGPS,
                     timestamp: serverTimestamp()
                 });
-                statusText.innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
-                statusText.style.color = "green";
+                document.getElementById('status').innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
+                document.getElementById('status').style.color = "green";
                 document.getElementById('sos-text').innerText = "SOS";
                 document.getElementById('mainSosBtn').onclick = startSOSCountdown;
             } catch (e) {
-                statusText.innerText = "❌ Error sending alert.";
-                document.getElementById('sos-text').innerText = "SOS";
+                document.getElementById('status').innerText = "❌ Error sending alert.";
                 document.getElementById('mainSosBtn').onclick = startSOSCountdown;
             }
         };
