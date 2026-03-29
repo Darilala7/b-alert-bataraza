@@ -12,7 +12,6 @@
         .header { background-color: #e65100; color: white; padding: 20px; font-size: 24px; font-weight: bold; }
         .container { padding: 30px 20px; }
         
-        /* Category Selection Styles */
         .category-label { font-weight: bold; margin-bottom: 15px; color: #333; display: block; }
         .categories { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
         .chip { 
@@ -28,9 +27,19 @@
             box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
             transition: transform 0.2s;
             margin-top: 10px;
+            display: flex; align-items: center; justify-content: center; margin: 10px auto;
         }
         .sos-btn:active { transform: scale(0.95); }
+        
+        /* Cancel Button Style */
+        .cancel-btn {
+            display: none; background: #555; color: white; border: none;
+            padding: 15px 40px; border-radius: 30px; font-size: 18px;
+            font-weight: bold; cursor: pointer; margin: 20px auto;
+        }
+
         #status { margin-top: 30px; font-size: 18px; color: #555; font-weight: bold; }
+        #countdown-display { font-size: 80px; color: white; display: none; }
     </style>
 </head>
 <body>
@@ -43,7 +52,13 @@
             <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
         </div>
 
-        <button class="sos-btn" onclick="triggerSOS()">SOS</button>
+        <button class="sos-btn" id="mainSosBtn" onclick="startSOSCountdown()">
+            <span id="sos-text">SOS</span>
+            <span id="countdown-display">3</span>
+        </button>
+
+        <button class="cancel-btn" id="cancelBtn" onclick="cancelSOS()">CANCEL SOS</button>
+        
         <p id="status">Ready to send emergency alert</p>
     </div>
 
@@ -63,47 +78,121 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 1. DEFINE ANG VARIABLE PARA SA CATEGORY
-        let selectedCategory = "Medical"; 
+        let selectedCategory = "Medical";
+        let lastKnownPosition = null;
+        let countdownTimer = null;
+        let timeLeft = 3;
 
-        // 2. FUNCTION PARA SA PAGPILI NG CATEGORY
-        window.selectCategory = function(cat, element) {
-            selectedCategory = cat;
-            // Alisin ang 'active' class sa lahat at ilagay sa pinili
-            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            element.classList.add('active');
-            
-            if (navigator.vibrate) { navigator.vibrate(50); } // Konting vibrate lang pag pindot
+        window.onload = () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    (pos) => { lastKnownPosition = pos; },
+                    (err) => { console.warn("Background tracking active."); },
+                    { enableHighAccuracy: true, maximumAge: 10000 }
+                );
+            }
         };
 
-        window.triggerSOS = function() {
-    const statusText = document.getElementById('status');
-    statusText.innerText = "Refining location... Please wait.";
+        window.selectCategory = function(cat, element) {
+            selectedCategory = cat;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            element.classList.add('active');
+            if (navigator.vibrate) { navigator.vibrate(50); }
+        };
 
-    const options = {
-        enableHighAccuracy: true,
-        timeout: 15000, // Binigyan natin ng 15 seconds para makahanap ng satellite
-        maximumAge: 0   // Hindi tayo gagamit ng lumang (cached) location
-    };
+        window.startSOSCountdown = function() {
+            const statusText = document.getElementById('status');
+            const sosText = document.getElementById('sos-text');
+            const countdownDisplay = document.getElementById('countdown-display');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const mainBtn = document.getElementById('mainSosBtn');
 
-    if (navigator.geolocation) {
-        // Ginagamit natin ang watchPosition para "ma-lock" ang tamang coordinates
-        const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                // Kung ang accuracy ay less than 100 meters, sapat na iyon para i-send
-                if (position.coords.accuracy < 100) {
-                    navigator.geolocation.clearWatch(watchId); // I-stop na ang pag-track
-                    sendToFirebase(position.coords.latitude, position.coords.longitude, true);
+            // Reset countdown
+            timeLeft = 3;
+            sosText.style.display = 'none';
+            countdownDisplay.style.display = 'block';
+            countdownDisplay.innerText = timeLeft;
+            cancelBtn.style.display = 'block';
+            mainBtn.onclick = null; // Disable click during countdown
+
+            statusText.innerText = `Sending ${selectedCategory} alert in...`;
+            
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                countdownDisplay.innerText = timeLeft;
+                if (navigator.vibrate) { navigator.vibrate(100); }
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    triggerSOS();
                 }
-            },
-            (error) => {
-                navigator.geolocation.clearWatch(watchId);
-                sendToFirebase(8.3542, 117.3515, false); // Backup Town Proper
-            },
-            options
-        );
-    }
-};
+            }, 1000);
+        };
+
+        window.cancelSOS = function() {
+            clearInterval(countdownTimer);
+            document.getElementById('sos-text').style.display = 'block';
+            document.getElementById('countdown-display').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
+            document.getElementById('status').innerText = "SOS Cancelled.";
+            document.getElementById('status').style.color = "#555";
+            
+            // Re-enable the main button
+            setTimeout(() => {
+                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+                document.getElementById('status').innerText = "Ready to send emergency alert";
+            }, 1500);
+        };
+
+        const triggerSOS = async () => {
+            const statusText = document.getElementById('status');
+            const countdownDisplay = document.getElementById('countdown-display');
+            const cancelBtn = document.getElementById('cancelBtn');
+
+            countdownDisplay.style.display = 'none';
+            document.getElementById('sos-text').style.display = 'block';
+            document.getElementById('sos-text').innerText = "SENDING...";
+            cancelBtn.style.display = 'none';
+            
+            statusText.innerText = "Locating & Sending SOS...";
+            statusText.style.color = "#e65100";
+
+            const backupLat = 8.3542; 
+            const backupLng = 117.3515; 
+
+            if (lastKnownPosition && lastKnownPosition.coords.accuracy < 100) {
+                await sendToFirebase(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude, true);
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
+                    (err) => { sendToFirebase(backupLat, backupLng, false); },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            }
+        };
+
+        const sendToFirebase = async (lat, lng, isRealGPS) => {
+            const statusText = document.getElementById('status');
+            try {
+                await addDoc(collection(db, "alerts"), {
+                    sender: "Ella - Student OJT",
+                    category: selectedCategory,
+                    latitude: lat,
+                    longitude: lng,
+                    status: "Pending",
+                    has_real_gps: isRealGPS,
+                    timestamp: serverTimestamp()
+                });
+                statusText.innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
+                statusText.style.color = "green";
+                document.getElementById('sos-text').innerText = "SOS";
+                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+            } catch (e) {
+                statusText.innerText = "❌ Error sending alert.";
+                document.getElementById('sos-text').innerText = "SOS";
+                document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+            }
+        };
     </script>
 </body>
 </html>
