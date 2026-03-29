@@ -77,47 +77,33 @@
         };
 
         window.triggerSOS = function() {
-            if (navigator.vibrate) { navigator.vibrate(500); }
+    const statusText = document.getElementById('status');
+    statusText.innerText = "Refining location... Please wait.";
 
-            const statusText = document.getElementById('status');
-            statusText.innerText = `Locating & Sending ${selectedCategory} SOS...`;
-            statusText.style.color = "#e65100";
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 15000, // Binigyan natin ng 15 seconds para makahanap ng satellite
+        maximumAge: 0   // Hindi tayo gagamit ng lumang (cached) location
+    };
 
-            const backupLat = 8.3542; 
-            const backupLng = 117.3515; 
-
-            const sendToFirebase = async (lat, lng, isRealGPS) => {
-                try {
-                    await addDoc(collection(db, "alerts"), {
-                        sender: "Ella - Student OJT",
-                        category: selectedCategory, // GAGANA NA ITO DAHIL DEFINED NA SA TAAS
-                        latitude: lat,
-                        longitude: lng,
-                        status: "Pending",
-                        has_real_gps: isRealGPS,
-                        timestamp: serverTimestamp()
-                    });
-                    statusText.innerText = `✅ ${selectedCategory} SOS SENT!`;
-                    statusText.style.color = "green";
-                } catch (e) {
-                    statusText.innerText = "❌ Error sending alert.";
-                    console.error("Firebase Error:", e);
+    if (navigator.geolocation) {
+        // Ginagamit natin ang watchPosition para "ma-lock" ang tamang coordinates
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                // Kung ang accuracy ay less than 100 meters, sapat na iyon para i-send
+                if (position.coords.accuracy < 100) {
+                    navigator.geolocation.clearWatch(watchId); // I-stop na ang pag-track
+                    sendToFirebase(position.coords.latitude, position.coords.longitude, true);
                 }
-            };
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
-                    (error) => { 
-                        console.warn("GPS failed, using backup.");
-                        sendToFirebase(backupLat, backupLng, false); 
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                sendToFirebase(backupLat, backupLng, false);
-            }
-        };
+            },
+            (error) => {
+                navigator.geolocation.clearWatch(watchId);
+                sendToFirebase(8.3542, 117.3515, false); // Backup Town Proper
+            },
+            options
+        );
+    }
+};
     </script>
 </body>
 </html>
