@@ -11,9 +11,8 @@
         .card.resolved { border-left: 10px solid #2e7d32; opacity: 0.7; }
         .warning { color: #d32f2f; font-weight: bold; font-size: 1.2em; margin-bottom: 10px; }
         .info { margin: 5px 0; color: #333; }
-        .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
         .btn-maps { display: block; background: #0d47a1; color: white; text-decoration: none; padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
-        .btn-maps:hover { background: #1565c0; }
+        .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
     </style>
 </head>
 <body>
@@ -39,7 +38,7 @@
             
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-                    siren.play().catch(e => console.log("Interaction required for sound."));
+                    siren.play().catch(e => console.log("Sound ready."));
                 }
             });
 
@@ -50,9 +49,11 @@
                 const data = alertDoc.data();
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
+                const lat = data.latitude;
+                const lng = data.longitude;
                 
-                // Tamang Google Maps Link para sa Mobile at Desktop
-                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+                // Link na tumuturo sa live location
+                const gMapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
 
                 const card = document.createElement('div');
                 card.className = `card ${isResolved ? 'resolved' : ''}`;
@@ -60,9 +61,9 @@
                     <div class="warning">${isResolved ? '✅ RESOLVED' : '⚠️ EMERGENCY ALERT'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
-                    <div class="info"><strong>Coordinates:</strong> ${data.latitude}, ${data.longitude}</div>
+                    <div class="info"><strong>Loc Type:</strong> ${data.has_real_gps ? "📍 Live GPS" : "⚠️ Backup"}</div>
                     
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON LIVE GOOGLE MAPS</a>
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LIVE LOCATION</a>
                     
                     ${!isResolved ? `<button class="btn-resolved" onclick="markAsResolved('${id}')">MARK AS RESOLVED</button>` : ''}
                 `;
