@@ -35,12 +35,32 @@
         #registration-overlay input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
         .save-btn { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; width: 100%; cursor: pointer; }
 
-        /* Lock Overlay */
-        #lock-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); color: white; z-index: 3000;
-            flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;
-        }
+        /* Emergency Lock Overlay - Perfect Centering Update */
+#lock-overlay {
+    display: none; 
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95); 
+    color: white; 
+    z-index: 3000;
+    
+    /* Ito ang magic para sa centering */
+    display: none; /* Mapapalitan ito ng 'flex' via JS */
+    flex-direction: column; 
+    align-items: center;    /* Center horizontally */
+    justify-content: center; /* Center vertically */
+    
+    padding: 30px; 
+    text-align: center; 
+    box-sizing: border-box;
+}
+
+#lock-overlay p {
+    margin: 20px 0; /* Dagdag space sa taas at baba ng text */
+    width: 100%;    /* Siguradong sakop ang width para sa alignment */
+    line-height: 1.6;
+}
 
         .container { 
             flex: 1;
