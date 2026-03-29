@@ -11,9 +11,11 @@
         .container { max-width: 800px; margin: auto; padding: 10px; }
         .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #3f51b5; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .card.resolved { opacity: 0.6; border-left-color: #4caf50; }
+        .info { margin: 5px 0; color: #333; }
         .time-ago { color: #1a237e; font-weight: bold; }
         .btn-maps { display: block; background: #3f51b5; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
         .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
+        .call-btn { background: #4caf50; color: white; padding: 3px 8px; border-radius: 5px; text-decoration: none; font-size: 12px; margin-left: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -64,7 +66,13 @@
                 card.innerHTML = `
                     <div style="color:#1a237e; font-weight:bold;">${data.status === "Resolved" ? '✅ RESOLVED' : '🚨 EMERGENCY HELP'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
+                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} <a href="tel:${data.phone}" class="call-btn">CALL</a></div>
                     <div class="info"><strong>Received:</strong> <span class="time-ago">${getTimeAgo(data.timestamp)}</span></div>
+                    
+                    ${data.photo_proof && data.photo_proof !== "No photo" ? 
+                        `<div style="margin-top:10px;"><img src="${data.photo_proof}" style="width:100%; border-radius:5px; border:1px solid #1a237e;"></div>` 
+                        : ''}
+
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 RESPOND TO LOCATION</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
