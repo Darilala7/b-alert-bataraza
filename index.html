@@ -2,63 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>B-ALERT SOS</title>
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; background-color: #f4f4f4; }
-        .header { background-color: #e65100; color: white; padding: 20px; font-size: 24px; font-weight: bold; }
-        .container { padding: 30px 20px; }
-        
-        .category-label { font-weight: bold; margin-bottom: 15px; color: #333; display: block; }
-        .categories { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
-        .chip { 
-            padding: 10px 20px; border-radius: 20px; border: 2px solid #ccc; 
-            background: white; cursor: pointer; font-weight: bold; transition: 0.3s;
+        :root {
+            --primary: #e65100;
+            --medical: #2196f3;
+            --fire: #f44336;
+            --police: #1a237e;
         }
-        .chip.active { background: #e65100; color: white; border-color: #e65100; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            background-color: #f8f9fa; 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Iwas scroll */
+        }
+        .header { background-color: var(--primary); color: white; padding: 20px; font-size: 22px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        .container { 
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly; /* Pantay na spacing */
+            padding: 20px;
+        }
+        
+        .category-label { font-weight: bold; color: #444; font-size: 16px; }
+        .categories { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        
+        .chip { 
+            padding: 12px 18px; border-radius: 25px; border: 2px solid #ddd; 
+            background: white; cursor: pointer; font-weight: bold; transition: 0.2s;
+            font-size: 14px; -webkit-tap-highlight-color: transparent;
+        }
+        .chip.active { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.05); }
 
+        /* SOS Button & Animation */
+        .sos-container { position: relative; display: flex; justify-content: center; align-items: center; }
+        
         .sos-btn { 
             background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
-            width: 250px; height: 250px; border-radius: 50%; 
-            font-size: 50px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
-            transition: transform 0.2s;
-            margin: 10px auto;
-            display: flex; align-items: center; justify-content: center;
+            width: 260px; height: 260px; border-radius: 50%; 
+            font-size: 55px; font-weight: 900; cursor: pointer;
+            box-shadow: 0 10px 40px rgba(183, 28, 28, 0.5);
+            transition: 0.2s; position: relative; z-index: 2;
+            -webkit-tap-highlight-color: transparent;
         }
-        .sos-btn:active { transform: scale(0.95); }
         
-        .cancel-btn {
-            display: none; background: #555; color: white; border: none;
-            padding: 15px 40px; border-radius: 30px; font-size: 18px;
-            font-weight: bold; cursor: pointer; margin: 20px auto;
+        /* Pulse effect habang nag-cacountdown */
+        .pulse-ring {
+            display: none; position: absolute; width: 260px; height: 260px;
+            border-radius: 50%; background: #ff1744; animation: pulse-anim 1s infinite;
         }
 
-        #status { margin-top: 30px; font-size: 18px; color: #555; font-weight: bold; }
-        #countdown-display { font-size: 80px; color: white; display: none; }
+        @keyframes pulse-anim {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .cancel-btn {
+            background: #444; color: white; border: none;
+            padding: 18px 50px; border-radius: 35px; font-size: 18px;
+            font-weight: bold; cursor: pointer; visibility: hidden; /* Maintain space */
+            transition: 0.3s;
+        }
+
+        #status { font-size: 16px; color: #666; font-weight: 600; min-height: 24px; }
+        #countdown-display { font-size: 90px; color: white; display: none; }
     </style>
 </head>
 <body>
     <div class="header">B-ALERT BATARAZA</div>
+    
     <div class="container">
-        <span class="category-label">Select Type of Emergency:</span>
-        <div class="categories">
-            <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
-            <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
-            <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
+        <div>
+            <span class="category-label">Emergency Type:</span>
+            <div class="categories" style="margin-top: 10px;">
+                <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
+                <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
+                <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
+            </div>
         </div>
 
-        <button class="sos-btn" id="mainSosBtn" onclick="startSOSCountdown()">
-            <span id="sos-text">SOS</span>
-            <span id="countdown-display">3</span>
-        </button>
+        <div class="sos-container">
+            <div class="pulse-ring" id="pulse"></div>
+            <button class="sos-btn" id="mainSosBtn" onclick="startSOSCountdown()">
+                <span id="sos-text">SOS</span>
+                <span id="countdown-display">3</span>
+            </button>
+        </div>
 
-        <button class="cancel-btn" id="cancelBtn" onclick="cancelSOS()">CANCEL SOS</button>
-        
-        <p id="status">Ready to send emergency alert</p>
+        <div>
+            <button class="cancel-btn" id="cancelBtn" onclick="cancelSOS()">CANCEL SOS</button>
+            <p id="status">Ready to send emergency alert</p>
+        </div>
     </div>
 
     <script type="module">
@@ -80,16 +124,12 @@
     let selectedCategory = "Medical";
     let lastKnownPosition = null;
     let countdownTimer = null;
-    let watchId = null; // Para sa background tracking
 
-    // 1. GPS WARM-UP: Pagkabukas pa lang, i-track na ang location nang tuluy-tuloy
+    // Background GPS Watch
     window.onload = () => {
         if (navigator.geolocation) {
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => { 
-                    lastKnownPosition = pos; 
-                    console.log("Location updated:", pos.coords.accuracy);
-                },
+            navigator.geolocation.watchPosition(
+                (pos) => { lastKnownPosition = pos; },
                 null,
                 { enableHighAccuracy: true, maximumAge: 0 }
             );
@@ -100,7 +140,7 @@
         selectedCategory = cat;
         document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         element.classList.add('active');
-        if (navigator.vibrate) { navigator.vibrate(50); }
+        if (navigator.vibrate) { navigator.vibrate(40); }
     };
 
     window.startSOSCountdown = function() {
@@ -109,16 +149,19 @@
         const sosText = document.getElementById('sos-text');
         const countdownDisplay = document.getElementById('countdown-display');
         const cancelBtn = document.getElementById('cancelBtn');
+        const pulse = document.getElementById('pulse');
         const mainBtn = document.getElementById('mainSosBtn');
 
         sosText.style.display = 'none';
         countdownDisplay.style.display = 'block';
         countdownDisplay.innerText = timeLeft;
-        cancelBtn.style.display = 'block';
+        cancelBtn.style.visibility = 'visible';
+        pulse.style.display = 'block';
         mainBtn.onclick = null; 
 
-        statusText.innerText = `Preparing ${selectedCategory} Alert...`;
-        
+        statusText.innerText = `Alerting ${selectedCategory}...`;
+        if (navigator.vibrate) { navigator.vibrate([100, 50, 100]); }
+
         countdownTimer = setInterval(() => {
             timeLeft--;
             countdownDisplay.innerText = timeLeft;
@@ -135,12 +178,10 @@
         clearInterval(countdownTimer);
         document.getElementById('sos-text').style.display = 'block';
         document.getElementById('countdown-display').style.display = 'none';
-        document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.visibility = 'hidden';
+        document.getElementById('pulse').style.display = 'none';
         document.getElementById('status').innerText = "SOS Cancelled.";
-        setTimeout(() => {
-            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-            document.getElementById('status').innerText = "Ready to send emergency alert";
-        }, 1000);
+        document.getElementById('mainSosBtn').onclick = startSOSCountdown;
     };
 
     const triggerSOS = () => {
@@ -148,21 +189,17 @@
         document.getElementById('countdown-display').style.display = 'none';
         document.getElementById('sos-text').style.display = 'block';
         document.getElementById('sos-text').innerText = "SENDING";
-        document.getElementById('cancelBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.visibility = 'hidden';
+        document.getElementById('pulse').style.display = 'none';
         
-        statusText.innerText = "Finalizing Location...";
+        statusText.innerText = "Transmitting location...";
 
-        const backupLat = 8.3542; 
-        const backupLng = 117.3515; 
-
-        // 2. SMART SEND: Gamitin ang pinaka-updated na position mula sa watchPosition
         if (lastKnownPosition) {
             sendToFirebase(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude, true);
         } else {
-            // Last resort kung wala talagang nasagap sa background
             navigator.geolocation.getCurrentPosition(
                 (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
-                (err) => { sendToFirebase(backupLat, backupLng, false); },
+                (err) => { sendToFirebase(8.3542, 117.3515, false); },
                 { enableHighAccuracy: true, timeout: 5000 }
             );
         }
@@ -183,6 +220,7 @@
             document.getElementById('status').style.color = "green";
             document.getElementById('sos-text').innerText = "SOS";
             document.getElementById('mainSosBtn').onclick = startSOSCountdown;
+            if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
         } catch (e) {
             document.getElementById('status').innerText = "❌ Error sending alert.";
             document.getElementById('mainSosBtn').onclick = startSOSCountdown;
