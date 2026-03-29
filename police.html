@@ -30,8 +30,9 @@
         const db = getFirestore(app);
 
         // --- SIREN & AUDIO LOGIC ---
-        const siren = new Audio('siren.mp3');
-        siren.preload = 'auto';
+        const siren = new Audio();
+        siren.src = 'siren.mp3';
+        siren.load();
 
         // Unlock audio on first click
         window.addEventListener('click', () => {
