@@ -58,21 +58,23 @@
             const backupLng = 117.3515; 
 
             const sendToFirebase = async (lat, lng, isRealGPS) => {
-                try {
-                    await addDoc(collection(db, "alerts"), {
-                        sender: "Ella - Student OJT",
-                        latitude: lat,
-                        longitude: lng,
-                        status: "Pending",
-                        has_real_gps: isRealGPS,
-                        timestamp: serverTimestamp()
-                    });
-                    statusText.innerText = isRealGPS ? "✅ SOS SENT (Live GPS)!" : "✅ SOS SENT (Backup Loc)!";
-                    statusText.style.color = "green";
-                } catch (e) {
-                    statusText.innerText = "❌ Database Error.";
-                }
-            };
+            try {
+                await addDoc(collection(db, "alerts"), {
+                sender: "Ella - Student OJT",
+                category: selectedCategory, // ETO ANG DINAGDAG NATING FIELD
+                latitude: lat,
+                longitude: lng,
+                status: "Pending",
+                has_real_gps: isRealGPS,
+                timestamp: serverTimestamp()
+            });
+                statusText.innerText = `✅ ${selectedCategory} SOS SENT!`;
+                statusText.style.color = "green";
+            } catch (e) {
+                statusText.innerText = "❌ Error sending alert.";
+                console.error(e);
+            }
+        };
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
