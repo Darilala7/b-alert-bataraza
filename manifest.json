@@ -1,0 +1,15 @@
+{
+  "short_name": "B-ALERT",
+  "name": "B-ALERT Bataraza SOS",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "theme_color": "#e65100",
+  "background_color": "#ffffff"
+}
