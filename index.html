@@ -46,45 +46,40 @@
         const db = getFirestore(app);
 
         window.triggerSOS = function() {
-            const statusText = document.getElementById('status');
-            statusText.innerText = "Locating & Sending SOS...";
-            statusText.style.color = "#e65100";
+    const statusText = document.getElementById('status');
+    statusText.innerText = "Locating...";
 
-            // BAGONG DEFAULT: Bataraza Town Proper (Imbis na sa dagat)
-            const defaultLat = 8.3541; 
-            const defaultLng = 117.3516; 
+    // Eto ang tamang Bataraza Town Proper (hindi na sa dagat)
+    const backupLat = 8.3542; 
+    const backupLng = 117.3515; 
 
-            const sendToFirebase = async (lat, lng, isRealGPS) => {
-                try {
-                    await addDoc(collection(db, "alerts"), {
-                        sender: "Ella - Student OJT",
-                        latitude: lat,
-                        longitude: lng,
-                        status: "Pending",
-                        has_real_gps: isRealGPS,
-                        timestamp: serverTimestamp()
-                    });
-                    statusText.innerText = isRealGPS ? "✅ SOS SENT (With GPS)!" : "✅ SOS SENT (Default Loc)!";
-                    statusText.style.color = "green";
-                } catch (e) {
-                    statusText.innerText = "❌ Database Error.";
-                    console.error(e);
-                }
-            };
+    const sendToFirebase = async (lat, lng, isRealGPS) => {
+        try {
+            await addDoc(collection(db, "alerts"), {
+                sender: "Ella - Student OJT",
+                latitude: lat,
+                longitude: lng,
+                status: "Pending",
+                has_real_gps: isRealGPS,
+                timestamp: serverTimestamp()
+            });
+            statusText.innerText = isRealGPS ? "✅ SOS SENT (GPS)!" : "✅ SOS SENT (Backup Loc)!";
+            statusText.style.color = "green";
+        } catch (e) {
+            statusText.innerText = "❌ Error.";
+        }
+    };
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
-                    (error) => { 
-                        console.warn("GPS Error, using default.");
-                        sendToFirebase(defaultLat, defaultLng, false); 
-                    },
-                    { enableHighAccuracy: true, timeout: 8000 }
-                );
-            } else {
-                sendToFirebase(defaultLat, defaultLng, false);
-            }
-        };
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => { sendToFirebase(position.coords.latitude, position.coords.longitude, true); },
+            (error) => { sendToFirebase(backupLat, backupLng, false); }, // Pag error, sa bayan ang turo
+            { enableHighAccuracy: true, timeout: 10000 } // Tinaasan natin ang timeout sa 10 seconds
+        );
+    } else {
+        sendToFirebase(backupLat, backupLng, false);
+    }
+};
     </script>
 </body>
 </html>
