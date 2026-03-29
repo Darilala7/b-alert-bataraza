@@ -25,21 +25,29 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // FILTER: Kunin lang ang alerts kung saan ang category == "Police"
-        const q = query(
-            collection(db, "alerts"), 
-            where("category", "==", "Police"), 
-            orderBy("timestamp", "desc")
-        );
+        // SIREN SETUP
+        const siren = new Audio('siren.mp3');
+        let isInitialLoad = true;
+
+        const q = query(collection(db, "alerts"), where("category", "==", "Police"), orderBy("timestamp", "desc"));
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
+
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
+                    siren.play().catch(e => console.log("Sound alert ready."));
+                }
+            });
+
+            isInitialLoad = false;
             list.innerHTML = "";
+
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
-                const gMapsLink = `http://maps.google.com/maps?q=${data.latitude},${data.longitude}`;
+                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
                 const card = document.createElement('div');
                 card.className = `card ${isResolved ? 'resolved' : ''}`;
