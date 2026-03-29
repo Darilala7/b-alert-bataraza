@@ -4,228 +4,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>B-ALERT SOS</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        :root {
-            --primary: #e65100;
-            --medical: #2196f3;
-            --fire: #f44336;
-            --police: #1a237e;
-        }
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            text-align: center; 
-            margin: 0; 
-            background-color: #f8f9fa; 
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* Iwas scroll */
-        }
-        .header { background-color: var(--primary); color: white; padding: 20px; font-size: 22px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        :root { --primary: #e65100; --danger: #b71c1c; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; height: 100vh; display: flex; flex-direction: column; }
+        .header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; }
         
-        .container { 
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-evenly; /* Pantay na spacing */
-            padding: 20px;
+        /* Registration Overlay */
+        #registration-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%; background:white;
+            z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; box-sizing: border-box;
         }
-        
-        .category-label { font-weight: bold; color: #444; font-size: 16px; }
-        .categories { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-        
-        .chip { 
-            padding: 12px 18px; border-radius: 25px; border: 2px solid #ddd; 
-            background: white; cursor: pointer; font-weight: bold; transition: 0.2s;
-            font-size: 14px; -webkit-tap-highlight-color: transparent;
-        }
-        .chip.active { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.05); }
+        input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
+        .save-btn { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; width: 100%; }
 
-        /* SOS Button & Animation */
-        .sos-container { position: relative; display: flex; justify-content: center; align-items: center; }
+        .container { flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
         
+        /* Photo Preview */
+        #photo-preview { width: 100px; height: 100px; object-fit: cover; border-radius: 10px; display: none; margin-bottom: 10px; border: 2px solid var(--primary); }
+
         .sos-btn { 
             background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
-            width: 260px; height: 260px; border-radius: 50%; 
-            font-size: 55px; font-weight: 900; cursor: pointer;
-            box-shadow: 0 10px 40px rgba(183, 28, 28, 0.5);
-            transition: 0.2s; position: relative; z-index: 2;
-            -webkit-tap-highlight-color: transparent;
+            width: 220px; height: 220px; border-radius: 50%; font-size: 40px; font-weight: bold;
+            box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
         }
-        
-        /* Pulse effect habang nag-cacountdown */
-        .pulse-ring {
-            display: none; position: absolute; width: 260px; height: 260px;
-            border-radius: 50%; background: #ff1744; animation: pulse-anim 1s infinite;
-        }
+        .chip-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .chip { padding: 10px 20px; border-radius: 20px; border: 1px solid #ccc; background: white; font-size: 14px; }
+        .chip.active { background: var(--primary); color: white; }
 
-        @keyframes pulse-anim {
-            0% { transform: scale(1); opacity: 0.5; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-
-        .cancel-btn {
-            background: #444; color: white; border: none;
-            padding: 18px 50px; border-radius: 35px; font-size: 18px;
-            font-weight: bold; cursor: pointer; visibility: hidden; /* Maintain space */
-            transition: 0.3s;
-        }
-
-        #status { font-size: 16px; color: #666; font-weight: 600; min-height: 24px; }
-        #countdown-display { font-size: 90px; color: white; display: none; }
+        .action-btn { background: #eee; border: none; padding: 10px 20px; border-radius: 10px; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
+
+    <div id="registration-overlay">
+        <h2>User Verification</h2>
+        <p>Mangyaring ilagay ang iyong impormasyon para sa mabilis na pag-responde.</p>
+        <input type="text" id="user-name" placeholder="Buong Pangalan (Full Name)">
+        <input type="tel" id="user-phone" placeholder="Phone Number (09123456789)">
+        <button class="save-btn" onclick="saveUserInfo()">PROCEED TO APP</button>
+    </div>
+
     <div class="header">B-ALERT BATARAZA</div>
-    
+
     <div class="container">
-        <div>
-            <span class="category-label">Emergency Type:</span>
-            <div class="categories" style="margin-top: 10px;">
-                <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
-                <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
-                <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
-            </div>
+        <div class="chip-container">
+            <div class="chip active" onclick="selectCat('Medical', this)">Medical 🏥</div>
+            <div class="chip" onclick="selectCat('Fire', this)">Fire 🚒</div>
+            <div class="chip" onclick="selectCat('Police', this)">Police 👮</div>
         </div>
 
-        <div class="sos-container">
-            <div class="pulse-ring" id="pulse"></div>
-            <button class="sos-btn" id="mainSosBtn" onclick="startSOSCountdown()">
-                <span id="sos-text">SOS</span>
-                <span id="countdown-display">3</span>
-            </button>
+        <div style="text-align: center;">
+            <img id="photo-preview" src="">
+            <br>
+            <button class="action-btn" onclick="document.getElementById('camera-input').click()">📸 TAKE PHOTO PROOF</button>
+            <input type="file" id="camera-input" accept="image/*" capture="camera" style="display:none" onchange="previewPhoto(this)">
         </div>
 
-        <div>
-            <button class="cancel-btn" id="cancelBtn" onclick="cancelSOS()">CANCEL SOS</button>
-            <p id="status">Ready to send emergency alert</p>
-        </div>
+        <button class="sos-btn" id="mainSosBtn" onclick="startCountdown()">SOS</button>
+        
+        <p id="status" style="font-weight: bold; color: #555;">Ready</p>
     </div>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
-        authDomain: "b-alert-bataraza.firebaseapp.com",
-        projectId: "b-alert-bataraza",
-        storageBucket: "b-alert-bataraza.firebasestorage.app",
-        messagingSenderId: "482644532182",
-        appId: "1:482644532182:web:08c5ad48bb227e0b4fe277"
-    };
+        const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        let selectedCategory = "Medical";
+        let capturedBase64 = null;
 
-    let selectedCategory = "Medical";
-    let lastKnownPosition = null;
-    let countdownTimer = null;
-
-    // Background GPS Watch
-    window.onload = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (pos) => { lastKnownPosition = pos; },
-                null,
-                { enableHighAccuracy: true, maximumAge: 0 }
-            );
-        }
-    };
-
-    window.selectCategory = function(cat, element) {
-        selectedCategory = cat;
-        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        element.classList.add('active');
-        if (navigator.vibrate) { navigator.vibrate(40); }
-    };
-
-    window.startSOSCountdown = function() {
-        let timeLeft = 3;
-        const statusText = document.getElementById('status');
-        const sosText = document.getElementById('sos-text');
-        const countdownDisplay = document.getElementById('countdown-display');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const pulse = document.getElementById('pulse');
-        const mainBtn = document.getElementById('mainSosBtn');
-
-        sosText.style.display = 'none';
-        countdownDisplay.style.display = 'block';
-        countdownDisplay.innerText = timeLeft;
-        cancelBtn.style.visibility = 'visible';
-        pulse.style.display = 'block';
-        mainBtn.onclick = null; 
-
-        statusText.innerText = `Alerting ${selectedCategory}...`;
-        if (navigator.vibrate) { navigator.vibrate([100, 50, 100]); }
-
-        countdownTimer = setInterval(() => {
-            timeLeft--;
-            countdownDisplay.innerText = timeLeft;
-            if (navigator.vibrate) { navigator.vibrate(100); }
-
-            if (timeLeft <= 0) {
-                clearInterval(countdownTimer);
-                triggerSOS();
+        // Check if user is already registered
+        window.onload = () => {
+            if(localStorage.getItem('b_alert_user')) {
+                document.getElementById('registration-overlay').style.display = 'none';
             }
-        }, 1000);
-    };
+        };
 
-    window.cancelSOS = function() {
-        clearInterval(countdownTimer);
-        document.getElementById('sos-text').style.display = 'block';
-        document.getElementById('countdown-display').style.display = 'none';
-        document.getElementById('cancelBtn').style.visibility = 'hidden';
-        document.getElementById('pulse').style.display = 'none';
-        document.getElementById('status').innerText = "SOS Cancelled.";
-        document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-    };
+        window.saveUserInfo = () => {
+            const name = document.getElementById('user-name').value;
+            const phone = document.getElementById('user-phone').value;
+            if(name && phone) {
+                localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
+                document.getElementById('registration-overlay').style.display = 'none';
+            } else { alert("Please fill up all fields."); }
+        };
 
-    const triggerSOS = () => {
-        const statusText = document.getElementById('status');
-        document.getElementById('countdown-display').style.display = 'none';
-        document.getElementById('sos-text').style.display = 'block';
-        document.getElementById('sos-text').innerText = "SENDING";
-        document.getElementById('cancelBtn').style.visibility = 'hidden';
-        document.getElementById('pulse').style.display = 'none';
-        
-        statusText.innerText = "Transmitting location...";
+        window.selectCat = (cat, el) => {
+            selectedCategory = cat;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        };
 
-        if (lastKnownPosition) {
-            sendToFirebase(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude, true);
-        } else {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => { sendToFirebase(pos.coords.latitude, pos.coords.longitude, true); },
-                (err) => { sendToFirebase(8.3542, 117.3515, false); },
-                { enableHighAccuracy: true, timeout: 5000 }
-            );
-        }
-    };
+        window.previewPhoto = (input) => {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('photo-preview').src = e.target.result;
+                    document.getElementById('photo-preview').style.display = 'block';
+                    capturedBase64 = e.target.result; // Proof image
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
 
-    const sendToFirebase = async (lat, lng, isRealGPS) => {
-        try {
-            await addDoc(collection(db, "alerts"), {
-                sender: "Ella - Student OJT",
-                category: selectedCategory,
-                latitude: lat,
-                longitude: lng,
-                status: "Pending",
-                has_real_gps: isRealGPS,
-                timestamp: serverTimestamp()
+        window.startCountdown = () => {
+            let timer = 3;
+            const btn = document.getElementById('mainSosBtn');
+            const status = document.getElementById('status');
+            
+            const interval = setInterval(() => {
+                btn.innerText = timer;
+                timer--;
+                if(timer < 0) {
+                    clearInterval(interval);
+                    triggerSOS();
+                }
+            }, 1000);
+        };
+
+        const triggerSOS = () => {
+            const userInfo = JSON.parse(localStorage.getItem('b_alert_user'));
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                await addDoc(collection(db, "alerts"), {
+                    sender: userInfo.name,
+                    phone: userInfo.phone,
+                    category: selectedCategory,
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    photo_proof: capturedBase64 || "No photo",
+                    status: "Pending",
+                    timestamp: serverTimestamp()
+                });
+                document.getElementById('status').innerText = "ALERT SENT!";
+                document.getElementById('mainSosBtn').innerText = "SOS";
             });
-            document.getElementById('status').innerText = `✅ ${selectedCategory.toUpperCase()} ALERT SENT!`;
-            document.getElementById('status').style.color = "green";
-            document.getElementById('sos-text').innerText = "SOS";
-            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-            if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
-        } catch (e) {
-            document.getElementById('status').innerText = "❌ Error sending alert.";
-            document.getElementById('mainSosBtn').onclick = startSOSCountdown;
-        }
-    };
-</script>
+        };
+    </script>
 </body>
 </html>
