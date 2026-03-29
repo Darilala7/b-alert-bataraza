@@ -24,43 +24,35 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
-            projectId: "b-alert-bataraza",
-        };
-
+        const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- SIREN & AUDIO LOGIC ---
+        // --- NOTIFICATION & AUDIO LOGIC ---
         const siren = new Audio('siren.mp3');
-        siren.loop = false;
+        function showNotification(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/564/564619.png' });
+            }
+        }
 
-        // Unlock audio on first click (Browser requirement)
+        if (Notification.permission !== "granted") { Notification.requestPermission(); }
+
         window.addEventListener('click', () => {
-            siren.play().then(() => {
-                siren.pause();
-                siren.currentTime = 0;
-            }).catch(e => console.log("Audio unlock ready."));
+            siren.play().then(() => { siren.pause(); siren.currentTime = 0; }).catch(e => console.log("Unlock ready"));
         }, { once: true });
 
         let isInitialLoad = true;
-
-        const q = query(
-            collection(db, "alerts"), 
-            where("category", "==", "Medical"), 
-            orderBy("timestamp", "desc")
-        );
+        const q = query(collection(db, "alerts"), where("category", "==", "Medical"), orderBy("timestamp", "desc"));
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
-            
             snapshot.docChanges().forEach((change) => {
-                // Tutunog lang kung may bagong alert (added) at hindi ito ang unang load ng page
                 if (change.type === "added" && !isInitialLoad) {
                     const alertData = change.doc.data();
                     if (alertData.status === "Pending") {
-                        siren.play().catch(e => console.log("Click the page to enable sound."));
+                        siren.play().catch(e => console.log("Interaction needed"));
+                        showNotification("🚑 MEDICAL EMERGENCY", `Sender: ${alertData.sender}`);
                     }
                 }
             });
@@ -72,8 +64,6 @@
                 const data = alertDoc.data();
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
-                
-                // FIXED: Tama na ang link format para sa Google Maps
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
                 const card = document.createElement('div');
@@ -82,23 +72,14 @@
                     <div class="warning">${isResolved ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
-                    <div class="info"><strong>Accuracy:</strong> ${data.has_real_gps ? 'High (GPS)' : 'Approximate'}</div>
-                    
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
-                    
                     ${!isResolved ? `<button class="btn-resolved" onclick="markAsResolved('${id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
             });
         });
 
-        window.markAsResolved = async (id) => {
-            try {
-                await updateDoc(doc(db, "alerts", id), { status: "Resolved" });
-            } catch (e) {
-                console.error("Error updating document: ", e);
-            }
-        };
+        window.markAsResolved = async (id) => { await updateDoc(doc(db, "alerts", id), { status: "Resolved" }); };
     </script>
 </body>
 </html>
