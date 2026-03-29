@@ -31,10 +31,21 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // --- SIREN & AUDIO LOGIC ---
         const siren = new Audio('siren.mp3');
+        siren.loop = false;
+
+        // Unlock audio on first click (Browser requirement)
+        window.addEventListener('click', () => {
+            siren.play().then(() => {
+                siren.pause();
+                siren.currentTime = 0;
+            }).catch(e => console.log("Audio unlock ready."));
+        }, { once: true });
+
         let isInitialLoad = true;
 
-        // FILTER: Medical category lamang ang lalabas dito
         const q = query(
             collection(db, "alerts"), 
             where("category", "==", "Medical"), 
@@ -45,8 +56,12 @@
             const list = document.getElementById('alerts-list');
             
             snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-                    siren.play().catch(e => console.log("Sound alert ready."));
+                // Tutunog lang kung may bagong alert (added) at hindi ito ang unang load ng page
+                if (change.type === "added" && !isInitialLoad) {
+                    const alertData = change.doc.data();
+                    if (alertData.status === "Pending") {
+                        siren.play().catch(e => console.log("Click the page to enable sound."));
+                    }
                 }
             });
 
@@ -58,6 +73,7 @@
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
                 
+                // FIXED: Tama na ang link format para sa Google Maps
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
                 const card = document.createElement('div');
@@ -66,7 +82,7 @@
                     <div class="warning">${isResolved ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
-                    <div class="info"><strong>Location:</strong> Bataraza, Palawan</div>
+                    <div class="info"><strong>Accuracy:</strong> ${data.has_real_gps ? 'High (GPS)' : 'Approximate'}</div>
                     
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
                     
@@ -77,7 +93,11 @@
         });
 
         window.markAsResolved = async (id) => {
-            await updateDoc(doc(db, "alerts", id), { status: "Resolved" });
+            try {
+                await updateDoc(doc(db, "alerts", id), { status: "Resolved" });
+            } catch (e) {
+                console.error("Error updating document: ", e);
+            }
         };
     </script>
 </body>
