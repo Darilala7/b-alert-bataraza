@@ -25,12 +25,25 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // FILTER: Fire alerts lang
+        // SIREN SETUP
+        const siren = new Audio('siren.mp3');
+        let isInitialLoad = true;
+
         const q = query(collection(db, "alerts"), where("category", "==", "Fire"), orderBy("timestamp", "desc"));
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
+
+            // Sound logic: Tutunog lang kapag may "added" na document pagkatapos ng initial load
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
+                    siren.play().catch(e => console.log("Interaction needed for sound."));
+                }
+            });
+
+            isInitialLoad = false;
             list.innerHTML = "";
+
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
                 const id = alertDoc.id;
