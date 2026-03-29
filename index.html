@@ -1,296 +1,148 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
     <title>B-ALERT SOS</title>
-
     <style>
-
         :root { --primary: #e65100; --danger: #b71c1c; }
-
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; height: 100vh; display: flex; flex-direction: column; }
-
         .header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; }
-
         
-
         /* Registration Overlay */
-
         #registration-overlay {
-
             position: fixed; top:0; left:0; width:100%; height:100%; background:white;
-
             z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
-
             padding: 20px; box-sizing: border-box;
-
         }
-
         input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; }
-
         .save-btn { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; width: 100%; }
 
-
-
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
-
         
-
         /* Photo Preview */
-
         #photo-preview { width: 100px; height: 100px; object-fit: cover; border-radius: 10px; display: none; margin-bottom: 10px; border: 2px solid var(--primary); }
 
-
-
         .sos-btn { 
-
             background: radial-gradient(#ff1744, #b71c1c); color: white; border: none; 
-
             width: 220px; height: 220px; border-radius: 50%; font-size: 40px; font-weight: bold;
-
             box-shadow: 0 10px 30px rgba(183, 28, 28, 0.4);
-
         }
-
         .chip-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-
         .chip { padding: 10px 20px; border-radius: 20px; border: 1px solid #ccc; background: white; font-size: 14px; }
-
         .chip.active { background: var(--primary); color: white; }
 
-
-
         .action-btn { background: #eee; border: none; padding: 10px 20px; border-radius: 10px; margin-top: 10px; font-weight: bold; }
-
     </style>
-
 </head>
-
 <body>
 
-
-
     <div id="registration-overlay">
-
         <h2>User Verification</h2>
-
         <p>Mangyaring ilagay ang iyong impormasyon para sa mabilis na pag-responde.</p>
-
         <input type="text" id="user-name" placeholder="Buong Pangalan (Full Name)">
-
         <input type="tel" id="user-phone" placeholder="Phone Number (09123456789)">
-
         <button class="save-btn" onclick="saveUserInfo()">PROCEED TO APP</button>
-
     </div>
-
-
 
     <div class="header">B-ALERT BATARAZA</div>
 
-
-
     <div class="container">
-
         <div class="chip-container">
-
             <div class="chip active" onclick="selectCat('Medical', this)">Medical 🏥</div>
-
             <div class="chip" onclick="selectCat('Fire', this)">Fire 🚒</div>
-
             <div class="chip" onclick="selectCat('Police', this)">Police 👮</div>
-
         </div>
-
-
 
         <div style="text-align: center;">
-
             <img id="photo-preview" src="">
-
             <br>
-
             <button class="action-btn" onclick="document.getElementById('camera-input').click()">📸 TAKE PHOTO PROOF</button>
-
             <input type="file" id="camera-input" accept="image/*" capture="camera" style="display:none" onchange="previewPhoto(this)">
-
         </div>
 
-
-
         <button class="sos-btn" id="mainSosBtn" onclick="startCountdown()">SOS</button>
-
         
-
         <p id="status" style="font-weight: bold; color: #555;">Ready</p>
-
     </div>
 
-
-
     <script type="module">
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-
         import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-
-
         const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
-
         const app = initializeApp(firebaseConfig);
-
         const db = getFirestore(app);
 
-
-
         let selectedCategory = "Medical";
-
         let capturedBase64 = null;
 
-
-
         // Check if user is already registered
-
         window.onload = () => {
-
             if(localStorage.getItem('b_alert_user')) {
-
                 document.getElementById('registration-overlay').style.display = 'none';
-
             }
-
         };
-
-
 
         window.saveUserInfo = () => {
-
             const name = document.getElementById('user-name').value;
-
             const phone = document.getElementById('user-phone').value;
-
             if(name && phone) {
-
                 localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
-
                 document.getElementById('registration-overlay').style.display = 'none';
-
             } else { alert("Please fill up all fields."); }
-
         };
-
-
 
         window.selectCat = (cat, el) => {
-
             selectedCategory = cat;
-
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-
             el.classList.add('active');
-
         };
-
-
 
         window.previewPhoto = (input) => {
-
             if (input.files && input.files[0]) {
-
                 const reader = new FileReader();
-
                 reader.onload = (e) => {
-
                     document.getElementById('photo-preview').src = e.target.result;
-
                     document.getElementById('photo-preview').style.display = 'block';
-
                     capturedBase64 = e.target.result; // Proof image
-
                 };
-
                 reader.readAsDataURL(input.files[0]);
-
             }
-
         };
-
-
 
         window.startCountdown = () => {
-
             let timer = 3;
-
             const btn = document.getElementById('mainSosBtn');
-
             const status = document.getElementById('status');
-
             
-
             const interval = setInterval(() => {
-
                 btn.innerText = timer;
-
                 timer--;
-
                 if(timer < 0) {
-
                     clearInterval(interval);
-
                     triggerSOS();
-
                 }
-
             }, 1000);
-
         };
-
-
 
         const triggerSOS = () => {
-
             const userInfo = JSON.parse(localStorage.getItem('b_alert_user'));
-
             navigator.geolocation.getCurrentPosition(async (pos) => {
-
                 await addDoc(collection(db, "alerts"), {
-
                     sender: userInfo.name,
-
                     phone: userInfo.phone,
-
                     category: selectedCategory,
-
                     latitude: pos.coords.latitude,
-
                     longitude: pos.coords.longitude,
-
                     photo_proof: capturedBase64 || "No photo",
-
                     status: "Pending",
-
                     timestamp: serverTimestamp()
-
                 });
-
                 document.getElementById('status').innerText = "ALERT SENT!";
-
                 document.getElementById('mainSosBtn').innerText = "SOS";
-
             });
-
         };
-
     </script>
-
 </body>
-
 </html>
-
