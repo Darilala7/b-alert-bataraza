@@ -127,7 +127,7 @@
         <div>
             <img id="photo-preview" src="">
             <button class="photo-btn" onclick="document.getElementById('camera-input').click()">📸 TAKE PHOTO PROOF (Optional)</button>
-            <input type="file" id="camera-input" accept="image/*" capture="camera" style="display:none" onchange="previewPhoto(this)">
+            <input type="file" id="camera-input" accept="image/*" capture="camera" style="display:none" onchange="processPhoto(this)">
         </div>
 
         <div class="sos-container">
@@ -163,7 +163,7 @@
     let selectedCategory = "Medical";
     let lastKnownPosition = null;
     let countdownTimer = null;
-    let capturedBase64 = null;
+    let compressedImageBase64 = null; // Gagamitin nating pangalan para sa compressed version
 
     // Background GPS Watch
     window.onload = () => {
@@ -188,15 +188,66 @@
         } else { alert("Please enter your name and phone number."); }
     };
 
-    window.previewPhoto = (input) => {
-        if (input.files && input.files[0]) {
+    // --- NEW HELPER: Image Compressor ---
+    function compressImage(file, maxWidth, maxHeight, quality) {
+        return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('photo-preview').src = e.target.result;
-                document.getElementById('photo-preview').style.display = 'block';
-                capturedBase64 = e.target.result;
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+
+                    // I-calculate ang bagong dimensions base sa limits
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // I-convert ang canvas sa compressed JPEG Base64
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl);
+                };
             };
-            reader.readAsDataURL(input.files[0]);
+            reader.onerror = (error) => reject(error);
+        });
+    }
+
+    // --- Updated function pangalan ---
+    window.processPhoto = async (input) => {
+        if (input.files && input.files[0]) {
+            const statusText = document.getElementById('status');
+            statusText.innerText = "Compressing photo proof..."; // Feedback sa user
+            
+            try {
+                // I-compress ang image: Max 800px width/height, 70% quality
+                const compressedBase64 = await compressImage(input.files[0], 800, 800, 0.7);
+                
+                document.getElementById('photo-preview').src = compressedBase64;
+                document.getElementById('photo-preview').style.display = 'block';
+                compressedImageBase64 = compressedBase64; // Eto na yung maliit na Base64
+                statusText.innerText = "Ready to send emergency alert.";
+                console.log("Photo compressed successfully.");
+            } catch (e) {
+                console.error("Compression error:", e);
+                alert("Error processing photo. Proceed without photo.");
+                statusText.innerText = "Ready (Photo process failed).";
+            }
         }
     };
 
@@ -281,7 +332,7 @@
                 category: selectedCategory,
                 latitude: lat,
                 longitude: lng,
-                photo_proof: capturedBase64 || "No photo",
+                photo_proof: compressedImageBase64 || "No photo", // Gamitin ang compressed image
                 status: "Pending",
                 has_real_gps: isRealGPS,
                 timestamp: serverTimestamp()
@@ -296,8 +347,9 @@
             document.getElementById('status').style.color = "green";
             if (navigator.vibrate) { navigator.vibrate([300, 100, 300]); }
         } catch (e) {
+            console.error("Firebase write error:", e);
             document.getElementById('lock-overlay').style.display = 'none';
-            document.getElementById('status').innerText = "❌ Error sending alert.";
+            document.getElementById('status').innerText = "❌ Error sending alert (Data too large?).";
             document.getElementById('mainSosBtn').onclick = startSOSCountdown;
         }
     };
