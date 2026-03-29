@@ -21,12 +21,24 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", 
+            projectId: "b-alert-bataraza" 
+        };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // SIREN SETUP
+        // --- SIREN & AUDIO LOGIC ---
         const siren = new Audio('siren.mp3');
+        
+        // Unlock audio on first click
+        window.addEventListener('click', () => {
+            siren.play().then(() => {
+                siren.pause();
+                siren.currentTime = 0;
+            }).catch(e => console.log("Audio ready to alert."));
+        }, { once: true });
+
         let isInitialLoad = true;
 
         const q = query(collection(db, "alerts"), where("category", "==", "Fire"), orderBy("timestamp", "desc"));
@@ -34,10 +46,12 @@
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
 
-            // Sound logic: Tutunog lang kapag may "added" na document pagkatapos ng initial load
             snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-                    siren.play().catch(e => console.log("Interaction needed for sound."));
+                if (change.type === "added" && !isInitialLoad) {
+                    const alertData = change.doc.data();
+                    if (alertData.status === "Pending") {
+                        siren.play().catch(e => console.log("Interaction needed for sound."));
+                    }
                 }
             });
 
@@ -48,22 +62,28 @@
                 const data = alertDoc.data();
                 const id = alertDoc.id;
                 const isResolved = data.status === "Resolved";
+                
+                // FIXED: Standard Google Maps URL format
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
 
                 const card = document.createElement('div');
                 card.className = `card ${isResolved ? 'resolved' : ''}`;
                 card.innerHTML = `
-                    <div style="color:#b71c1c; font-weight:bold;">🔥 FIRE INCIDENT REPORTED</div>
+                    <div style="color:#b71c1c; font-weight:bold;">${isResolved ? '✅ RESOLVED' : '🔥 FIRE INCIDENT REPORTED'}</div>
                     <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
                     <div style="margin:5px 0;"><strong>Time:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString() : "Just now"}</div>
+                    <div style="margin:5px 0; font-size: 0.9em; color: #666;"><strong>Source:</strong> ${data.has_real_gps ? 'GPS Sensor' : 'Network/Backup'}</div>
+                    
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW INCIDENT LOCATION</a>
-                    ${!isResolved ? `<button class="btn-resolved" onclick="markAsResolved('${id}')">MARK AS RESOLVED</button>` : '✅ RESOLVED'}
+                    ${!isResolved ? `<button class="btn-resolved" onclick="markAsResolved('${id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
             });
         });
 
-        window.markAsResolved = async (id) => { await updateDoc(doc(db, "alerts", id), { status: "Resolved" }); };
+        window.markAsResolved = async (id) => { 
+            await updateDoc(doc(db, "alerts", id), { status: "Resolved" }); 
+        };
     </script>
 </body>
 </html>
