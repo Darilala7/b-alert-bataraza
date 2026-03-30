@@ -14,6 +14,9 @@
         .time-ago { color: #b71c1c; font-weight: bold; }
         .btn-maps { display: block; background: #b71c1c; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
         .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
+        
+        .photo-container { margin-top: 12px; text-align: center; }
+        .photo-thumb { width: 100%; max-height: 250px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 1px solid #b71c1c; }
     </style>
 </head>
 <body>
@@ -64,7 +67,17 @@
                 card.innerHTML = `
                     <div style="color:#b71c1c; font-weight:bold;">${data.status === "Resolved" ? '✅ RESOLVED' : '🔥 FIRE INCIDENT'}</div>
                     <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
+                    <div style="margin:5px 0;"><strong>Phone:</strong> ${data.phone || 'N/A'}</div>
                     <div style="margin:5px 0;"><strong>Reported:</strong> <span class="time-ago">${getTimeAgo(data.timestamp)}</span></div>
+                    
+                    ${data.photo_proof && data.photo_proof !== "No photo" ? 
+    `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
+           onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
+     <img src="${data.photo_proof}" 
+          style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
+          onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
+    : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
+
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
