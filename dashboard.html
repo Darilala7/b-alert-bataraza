@@ -89,6 +89,15 @@
                     <div class="warning">${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
+
+                    ${data.photo_proof && data.photo_proof !== "No photo" ? 
+    `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
+           onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
+     <img src="${data.photo_proof}" 
+          style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
+          onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
+    : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
+    
                     <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
