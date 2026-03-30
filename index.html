@@ -319,28 +319,34 @@
         document.getElementById('pulse').style.display = 'none';
 
         const userInfo = JSON.parse(localStorage.getItem('b_alert_user')) || {name: "Unknown", phone: "N/A"};
-        const lat = lastKnownPosition ? lastKnownPosition.coords.latitude : "Unknown";
-        const lng = lastKnownPosition ? lastKnownPosition.coords.longitude : "Unknown";
 
         // 1. SMART SMS FALLBACK CHECK
         if (!navigator.onLine) {
-            statusText.innerText = "OFFLINE: Redirecting to SMS...";
+            statusText.innerText = "OFFLINE: Fetching location for SMS...";
             
-            // Hotline Number (Palitan mo ng tunay na number ng MDRRMO/Police Bataraza)
-            const hotlineNumber = "09123456789"; 
+            const hotlineNumber = "09123456789"; // Palitan ng tunay na number
             
-            // Mensahe na ipapadala
-            const smsMessage = `B-ALERT SOS! 🚨\nSender: ${userInfo.name}\nType: ${selectedCategory.toUpperCase()}\nLocation: http://google.com/maps?q=${lat},${lng}`;
-            
-            // I-trigger ang SMS app
-            setTimeout(() => {
+            // Function para i-format at i-send ang SMS
+            const sendSMS = (lat, lng) => {
+                const smsMessage = `B-ALERT SOS! 🚨\nSender: ${userInfo.name}\nType: ${selectedCategory.toUpperCase()}\nLocation: http://google.com/maps?q=${lat},${lng}`;
+                
                 window.location.href = `sms:${hotlineNumber}?body=${encodeURIComponent(smsMessage)}`;
                 
-                // Update Lock Screen para sa SMS Instructions
                 lockHeader.innerText = "SMS REDIRECTED";
                 lockHeader.style.color = "#ff9800";
                 lockMsg.innerHTML = `No internet detected. <br><br><b>Mensahe:</b> Paki-pindot ang <b>"SEND"</b> sa iyong SMS app para makarating ang report.`;
-            }, 1000);
+            };
+
+            // Kung may lastKnownPosition na, gamitin agad. Kung wala, kuhanin muna.
+            if (lastKnownPosition) {
+                sendSMS(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude);
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => { sendSMS(pos.coords.latitude, pos.coords.longitude); },
+                    (err) => { sendSMS("8.3542", "117.3515"); }, // Default Bataraza Center kung ayaw talaga
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            }
             return; 
         }
 
@@ -356,7 +362,7 @@
             );
         }
     };
-
+        
     const sendToFirebase = async (lat, lng, isRealGPS) => {
         const userInfo = JSON.parse(localStorage.getItem('b_alert_user')) || {name: "Unknown", phone: "N/A"};
         try {
