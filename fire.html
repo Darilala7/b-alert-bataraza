@@ -19,7 +19,11 @@
     </style>
 </head>
 <body>
-    <div class="nav">🚒 BFP FIRE DASHBOARD <span id="connection-status" class="status-indicator">ONLINE</span></div>
+    <div class="nav">
+        <div class="nav">
+        🚒 BFP FIRE DASHBOARD
+        <span id="connection-status" class="status-indicator">ONLINE</span>
+    </div>
     <div class="container" id="alerts-list"></div>
 
     <script type="module">
@@ -33,8 +37,11 @@
         function getTimeAgo(timestamp) {
             if (!timestamp) return "Just now";
             const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
-            let interval = Math.floor(seconds / 60);
-            return interval >= 1 ? interval + "m ago" : "Just now";
+            let interval = Math.floor(seconds / 3600);
+            if (interval >= 1) return interval + "h ago";
+            interval = Math.floor(seconds / 60);
+            if (interval >= 1) return interval + "m ago";
+            return "Just now";
         }
 
         setInterval(() => {
@@ -52,6 +59,7 @@
         window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
 
         const siren = new Audio('siren.mp3');
+        function showNotification(title, body) { if (Notification.permission === "granted") new Notification(title, { body }); }
         if (Notification.permission !== "granted") Notification.requestPermission();
         window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
 
@@ -63,31 +71,31 @@
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
                     siren.play().catch(e => {});
-                    if (Notification.permission === "granted") new Notification("🔥 FIRE ALERT", { body: `Sender: ${change.doc.data().sender}` });
+                    showNotification("🔥 FIRE ALERT", `Sender: ${change.doc.data().sender}`);
                 }
             });
             isInitialLoad = false;
             list.innerHTML = "";
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
+                const ts = data.timestamp ? data.timestamp.toDate().getTime() : new Date().getTime();
                 const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
                 card.innerHTML = `
-                    <div style="color:${data.status === "Resolved" ? '#2e7d32' : '#b71c1c'}; font-weight:bold;">
+                    <div class="warning" style="color: ${data.status === 'Resolved' ? '#2e7d32' : '#1565c0'};">
                         ${data.status === "Resolved" ? '✅ RESOLVED' : '🔥 FIRE INCIDENT'}
                     </div>
-                    
+
                     ${data.status === "Resolved" ? 
-                        `<div style="font-size: 0.85em; color: #2e7d32; margin: 5px 0;">
+                        `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
                             <strong>Resolved on:</strong> ${resolvedTime}
                         </div>` : ''}
 
-                    <div style="margin:5px 0;"><strong>Sender Name:</strong> ${data.sender}</div>
-                    <div style="margin:5px 0;"><strong>Phone:</strong> ${data.phone || 'N/A'}</div>
-                    <div style="margin:5px 0;"><strong>Reported:</strong> <span class="time-ago">${getTimeAgo(data.timestamp)}</span></div>
-                    
+                    <div class="info"><strong>Sender Name:</strong> ${data.sender}</div>
+                    <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
+
                     ${data.photo_proof && data.photo_proof !== "No photo" ? 
                         `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
                                onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
@@ -95,8 +103,8 @@
                               style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
                               onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
                         : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
-
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION</a>
+                    
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
@@ -104,7 +112,7 @@
         });
 
         window.markAsResolved = async (id) => { 
-            const confirmResolve = confirm("Are you sure you want to mark this fire incident as RESOLVED?");
+            const confirmResolve = confirm("Are you sure you want to mark this medical emergency as RESOLVED?");
             if (confirmResolve) {
                 try {
                     await updateDoc(doc(db, "alerts", id), { 
