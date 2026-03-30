@@ -37,6 +37,17 @@
             return interval >= 1 ? interval + "m ago" : "Just now";
         }
 
+        // Update timers every 30 seconds
+        setInterval(() => {
+            document.querySelectorAll('.time-ago').forEach(el => {
+                const ts = el.getAttribute('data-ts');
+                if (ts) {
+                    const date = new Date(parseInt(ts));
+                    el.innerText = getTimeAgo({ toDate: () => date });
+                }
+            });
+        }, 30000);
+
         const statusEl = document.getElementById('connection-status');
         window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
         window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
