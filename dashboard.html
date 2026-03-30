@@ -28,7 +28,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getFirestore, ..., updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
         const app = initializeApp(firebaseConfig);
@@ -82,52 +81,31 @@
             list.innerHTML = "";
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
-                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "Pending";
                 const ts = data.timestamp ? data.timestamp.toDate().getTime() : new Date().getTime();
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
                 card.innerHTML = `
-    <div class="warning" style="color: ${data.status === 'Resolved' ? '#2e7d32' : '#d32f2f'};">
-        ${data.status === "Resolved" ? '✅ RESOLVED' : '⚠️ ACTIVE EMERGENCY'}
-    </div>
-    
-    <div class="info" style="font-size: 0.85em; background: #f9f9f9; padding: 5px; border-radius: 4px; margin: 10px 0;">
-        <strong>Reported:</strong> ${data.timestamp ? data.timestamp.toDate().toLocaleString('en-PH') : 'Unknown'}<br>
-        <strong>Status:</strong> ${data.status === "Resolved" ? `<span style="color: #2e7d32;">Resolved on ${resolvedTime}</span>` : '<span style="color: #d32f2f;">Response Ongoing</span>'}
-    </div>
+                    <div class="warning">${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
+                    <div class="info"><strong>Sender:</strong> ${data.sender}</div>
+                    <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
 
-    <div class="info"><strong>Sender Name:</strong> ${data.sender}</div>
-    <div class="info"><strong>Contact No.:</strong> ${data.phone || 'N/A'}</div>
+                    ${data.photo_proof && data.photo_proof !== "No photo" ? 
+    `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
+           onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
+     <img src="${data.photo_proof}" 
+          style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
+          onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
+    : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
     
-    ${data.photo_proof && data.photo_proof !== "No photo" ? 
-        `<span class="photo-link" style="text-decoration: none; color: #1565c0;" onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ ATTACHED PHOTO PROOF</span>
-         <img src="${data.photo_proof}" class="photo-img" style="max-width: 100%; height: auto; display: none;" onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
-        : '<div class="info"><em>No photo evidence provided.</em></div>'}
-
-    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 TRACK LOCATION ON MAP</a>
-    
-    ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
-`;
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
+                    ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
+                `;
                 list.appendChild(card);
             });
         });
 
-        window.markAsResolved = async (id) => { 
-    const confirmResolve = confirm("Are you sure you want to mark this incident as RESOLVED?");
-    if (confirmResolve) {
-        try {
-            await updateDoc(doc(db, "alerts", id), { 
-                status: "Resolved",
-                resolved_at: serverTimestamp() 
-            });
-            alert("Incident successfully resolved.");
-        } catch (e) {
-            console.error("Error:", e);
-            alert("System Error: Could not update status.");
-        }
-    }
-};
+        window.markAsResolved = async (id) => { await updateDoc(doc(db, "alerts", id), { status: "Resolved" }); };
     </script>
 </body>
 </html>
