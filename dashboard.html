@@ -177,7 +177,7 @@
                     <div class="warning">${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
 
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
-                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} <a href="tel:${data.phone}" class="call-btn">CALL</a></div>
+                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
 
                     <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
 
