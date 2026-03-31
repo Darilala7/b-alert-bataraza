@@ -149,7 +149,7 @@
         });
         // UPDATED: Function na may Confirmation Dialog at Error Handling
         window.markAsResolved = async (id) => { 
-            const confirmResolve = confirm("Sigurado ka bang gusto mong i-mark as RESOLVED ang medical request na ito?");
+            const confirmResolve = confirm("Are you sure you want to mark this medical request as RESOLVED?");
             
             if (confirmResolve) {
                 try {
@@ -158,10 +158,9 @@
                         status: "Resolved",
                         resolved_at: serverTimestamp() // Nagdagdag din tayo ng resolved_at timestamp
                     });
-                    alert("Tagumpay na na-update ang status.");
                 } catch (error) {
                     console.error("Firebase Error:", error);
-                    alert("System error: Hindi ma-update ang status. Pakisuri ang connection.");
+                    alert("System error: Can't update status. Check your connection.");
                 }
             }
         };
