@@ -112,7 +112,24 @@
         #countdown-display { font-size: 70px; color: white; display: none; }
         
         #photo-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 10px; display: none; margin: 0 auto 5px; border: 2px solid var(--primary); }
-        .photo-btn { background: #eee; border: none; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        
+    .photo-btn { 
+    background: #ffcc00; /* Bright Yellow/Orange */
+    color: #333;
+    border: none; 
+    padding: 10px 18px; 
+    border-radius: 12px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    font-size: 13px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: 0.3s;
+}
+
+    .photo-btn:active {
+    transform: scale(0.95);
+    background: #e6b800;
+}
     </style>
 </head>
 <body>
@@ -122,6 +139,10 @@
     <div id="registration-overlay">
         <h2 style="color: var(--primary);">User Verification</h2>
         <p style="color: #666; font-size: 14px; text-align: center;">Mangyaring ilagay ang iyong impormasyon para sa mabilis na pag-responde.</p>
+        
+        <p style="color: #d32f2f; font-size: 11px; font-weight: bold; margin: 5px 0; background: #ffebee; padding: 10px; border-radius: 8px;">
+        ⚠️ WARNING: False emergency reports are punishable by law. Photo proof is highly encouraged for faster verification.
+    </p>
         <input type="text" id="user-name" placeholder="Buong Pangalan (Full Name)">
         <input type="tel" id="user-phone" placeholder="Phone Number (09XXXXXXXXX)">
         <button class="save-btn" onclick="saveUserInfo()">PROCEED TO APP</button>
