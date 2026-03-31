@@ -111,13 +111,24 @@
                 const data = alertDoc.data();
                 const ts = data.timestamp ? data.timestamp.toDate().getTime() : new Date().getTime();
                 
-                // FIXED: Inayos ang typo sa Google Maps Link (${data.latitude} imbes na 1{data.latitude})
+                // --- DAGDAG: Kunin ang oras kung kailan na-resolve ---
+                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
+                
+                // --- FIXED: Inayos ang Google Maps Link typo ---
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
                 card.innerHTML = `
-                    <div class="warning">${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}</div>
+                    <div class="warning" style="color: ${data.status === 'Resolved' ? '#2e7d32' : '#1565c0'};">
+                        ${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}
+                    </div>
+
+                    ${data.status === "Resolved" ? 
+                        `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
+                            <strong>Resolved on:</strong> ${resolvedTime}
+                        </div>` : ''}
+
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
                     <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
@@ -136,7 +147,6 @@
                 list.appendChild(card);
             });
         });
-
         // UPDATED: Function na may Confirmation Dialog at Error Handling
         window.markAsResolved = async (id) => { 
             const confirmResolve = confirm("Sigurado ka bang gusto mong i-mark as RESOLVED ang medical request na ito?");
