@@ -60,27 +60,33 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Kukunin lang natin ang mga "Resolved" na alerts, naka-sort sa pinakabago
+        // 1. Gawing simple ang query (Status lang ang filter)
         const q = query(
             collection(db, "alerts"), 
-            where("status", "==", "Resolved"),
-            orderBy("timestamp", "desc")
+            where("status", "==", "Resolved")
         );
 
         onSnapshot(q, (snapshot) => {
             const tableBody = document.getElementById('report-table');
             tableBody.innerHTML = "";
 
-            snapshot.forEach((alertDoc) => {
+            // 2. I-convert sa array para ma-sort natin manually kahit may missing fields
+            const sortedDocs = snapshot.docs.sort((a, b) => {
+                const timeA = a.data().timestamp ? a.data().timestamp.toDate() : 0;
+                const timeB = b.data().timestamp ? b.data().timestamp.toDate() : 0;
+                return timeB - timeA; // Bago sa taas
+            });
+
+            sortedDocs.forEach((alertDoc) => {
                 const data = alertDoc.data();
                 
                 // Formatting ng Dates
-                const reportedDate = data.timestamp ? data.timestamp.toDate().toLocaleString('en-PH') : "N/A";
-                const resolvedDate = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "---";
+                const reportedDate = data.timestamp ? data.timestamp.toDate().toLocaleString('en-PH') : "Old Record";
+                const resolvedDate = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
                 
-                // Safety check para sa Coordinates (para hindi mag-error ang toFixed)
-                const lat = data.latitude ? data.latitude.toFixed(4) : "0.0000";
-                const long = data.longitude ? data.longitude.toFixed(4) : "0.0000";
+                // Safety check para sa Coordinates
+                const lat = (data.latitude && typeof data.latitude === 'number') ? data.latitude.toFixed(4) : "0.0000";
+                const long = (data.longitude && typeof data.longitude === 'number') ? data.longitude.toFixed(4) : "0.0000";
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
