@@ -230,12 +230,18 @@
     window.saveUserInfo = () => {
         const name = document.getElementById('user-name').value.trim();
         const phone = document.getElementById('user-phone').value.trim();
-        if(name && phone) {
+        
+        // REGEX: Dapat nagsisimula sa 09 at may 11 digits total
+        const phoneRegex = /^09\d{9}$/;
+        
+        if(name.length >= 4 && phoneRegex.test(phone)) {
             localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
             document.getElementById('registration-overlay').style.display = 'none';
-        } else { alert("Please enter your name and phone number."); }
+        } else { 
+            alert("Paki-ayos ang impormasyon.\n(Name: at least 4 letters, Phone: 09XXXXXXXXX)"); 
+        }
     };
-
+            
     function compressImage(file, maxWidth, maxHeight, quality) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -318,6 +324,18 @@
     };
 
     const triggerSOS = () => {
+        // --- COOLDOWN CHECK (Anti-Spam) ---
+        const lastSend = localStorage.getItem('last_sos_time');
+        const now = Date.now();
+        const cooldown = 120000; // 2 minutes
+
+        if (lastSend && (now - lastSend < cooldown)) {
+            const wait = Math.ceil((cooldown - (now - lastSend)) / 1000);
+            alert(`Kaka-send mo lang ng SOS. Mangyaring maghintay ng ${wait} segundo.`);
+            cancelSOS();
+            return;
+        }
+
         document.getElementById('lock-overlay').style.display = 'flex';
         const lockHeader = document.getElementById('lock-header');
         const lockMsg = document.getElementById('lock-msg');
@@ -328,6 +346,10 @@
             const hotlineNumber = "09123456789"; 
             const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
             const msg = `B-ALERT SOS!🚨\nName: ${userInfo.name}\nType: ${selectedCategory.toUpperCase()}\nLoc: ${mapsLink}`;
+            
+            // I-set ang cooldown kahit SMS mode
+            localStorage.setItem('last_sos_time', Date.now());
+            
             window.location.href = `sms:${hotlineNumber}?body=${encodeURIComponent(msg)}`;
             
             lockHeader.innerText = "SMS SENT";
@@ -374,6 +396,10 @@
                 has_real_gps: isRealGPS,
                 timestamp: serverTimestamp()
             });
+
+            // SUCCESS: I-save ang timestamp para sa 2-minute cooldown
+            localStorage.setItem('last_sos_time', Date.now());
+
             document.getElementById('lock-header').innerText = "HELP IS ON THE WAY!";
             document.getElementById('lock-header').style.color = "#4caf50";
             document.getElementById('lock-msg').innerHTML = `Alert received. Responders are notified. Stay safe.`;
@@ -382,6 +408,6 @@
             document.getElementById('mainSosBtn').onclick = startSOSCountdown;
         }
     };
-    </script>
+</script>
 </body>
 </html>
