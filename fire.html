@@ -139,7 +139,7 @@
 
         // FIXED: May confirmation prompt at serverTimestamp
         window.markAsResolved = async (id) => { 
-            const confirmResolve = confirm("Sigurado ka bang RESOLVED na ang fire incident na ito?");
+            const confirmResolve = confirm("Are you sure you want to mark this fire incident as RESOLVED?");
             if (confirmResolve) {
                 try {
                     const alertRef = doc(db, "alerts", id);
