@@ -60,7 +60,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Kukunin lang natin ang mga "Resolved" na alerts
+        // Kukunin lang natin ang mga "Resolved" na alerts, naka-sort sa pinakabago
         const q = query(
             collection(db, "alerts"), 
             where("status", "==", "Resolved"),
@@ -73,15 +73,35 @@
 
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
-                const date = data.timestamp ? data.timestamp.toDate().toLocaleString() : "N/A";
+                
+                // Formatting ng Dates
+                const reportedDate = data.timestamp ? data.timestamp.toDate().toLocaleString('en-PH') : "N/A";
+                const resolvedDate = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "---";
+                
+                // Safety check para sa Coordinates (para hindi mag-error ang toFixed)
+                const lat = data.latitude ? data.latitude.toFixed(4) : "0.0000";
+                const long = data.longitude ? data.longitude.toFixed(4) : "0.0000";
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${date}</td>
-                    <td><span class="badge bg-${data.category.toLowerCase()}">${data.category.toUpperCase()}</span></td>
-                    <td>${data.sender}</td>
-                    <td>${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}</td>
-                    <td style="color: green; font-weight: bold;">✓ RESOLVED</td>
+                    <td>
+                        <div style="font-weight: bold;">${reportedDate}</div>
+                        <div style="font-size: 0.8em; color: #666;">Reported</div>
+                    </td>
+                    <td><span class="badge bg-${data.category ? data.category.toLowerCase() : 'medical'}">${data.category ? data.category.toUpperCase() : 'N/A'}</span></td>
+                    <td>
+                        <div style="font-weight: bold;">${data.sender || 'Anonymous'}</div>
+                        <div style="font-size: 0.85em; color: #555;">📞 ${data.phone || 'No Phone'}</div>
+                    </td>
+                    <td>
+                        <a href="https://www.google.com/maps?q=${lat},${long}" target="_blank" style="text-decoration: none; color: #1565c0;">
+                            📍 ${lat}, ${long}
+                        </a>
+                    </td>
+                    <td>
+                        <div style="color: green; font-weight: bold;">✓ RESOLVED</div>
+                        <div style="font-size: 0.8em; color: #666;">At: ${resolvedDate}</div>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
