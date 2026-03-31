@@ -137,7 +137,7 @@
 
         // FIXED: May confirmation dialog at server-side timestamp
         window.markAsResolved = async (id) => { 
-            const confirmResolve = confirm("Sigurado ka bang RESOLVED na ang police assistance request na ito?");
+            const confirmResolve = confirm("Are you sure you want to mark this police assistance request as RESOLVED?");
             if (confirmResolve) {
                 try {
                     const alertRef = doc(db, "alerts", id);
@@ -147,7 +147,7 @@
                     });
                 } catch (e) {
                     console.error("Update Error:", e);
-                    alert("Hindi ma-update ang status. Check connection.");
+                    alert("Can't update status. Check connection.");
                 }
             }
         };
