@@ -405,6 +405,10 @@
 
     const sendToFirebase = async (lat, lng, isRealGPS) => {
         const userInfo = JSON.parse(localStorage.getItem('b_alert_user')) || {name: "User", phone: "N/A"};
+
+        // Kunin natin ang details ng gamit nilang browser/phone
+        const deviceInfo = navigator.userAgent;
+        
         try {
             await addDoc(collection(db, "alerts"), {
                 sender: userInfo.name,
