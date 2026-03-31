@@ -413,6 +413,7 @@
             await addDoc(collection(db, "alerts"), {
                 sender: userInfo.name,
                 phone: userInfo.phone,
+                device_info: deviceInfo,
                 category: selectedCategory,
                 latitude: lat,
                 longitude: lng,
