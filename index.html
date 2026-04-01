@@ -129,224 +129,209 @@
 </head>
 <body>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <div id="registration-overlay">
-        <h2 style="color: var(--primary);">User Verification</h2>
-        <p style="color: #666; font-size: 14px; text-align: center;">Mangyaring ilagay ang iyong impormasyon para sa mabilis na pag-responde.</p>
-        
-        <p style="color: #d32f2f; font-size: 11px; font-weight: bold; margin: 5px 0; background: #ffebee; padding: 10px; border-radius: 8px;">
-            ⚠️ WARNING: False emergency reports are punishable by law. Photo proof is highly encouraged.
-        </p>
-        <input type="text" id="user-name" placeholder="Buong Pangalan (Full Name)">
-        <input type="tel" id="user-phone" placeholder="Phone Number (09XXXXXXXXX)">
-        <button class="save-btn" onclick="saveUserInfo()">PROCEED TO APP</button>
-    </div>
-
-    <div id="lock-overlay">
-        <h1 id="lock-header">SENDING SOS...</h1>
-        <p id="lock-msg">Please stay calm. Alerting responders.</p>
-        <div id="loader" style="margin-top: 20px; border: 3px solid white; border-radius: 50%; width: 30px; height: 30px; border-top-color: transparent; animation: pulse-anim 1s infinite;"></div>
-        <button id="close-overlay" style="display:none; margin-top:20px; padding:10px 20px; border-radius:20px; border:none;" onclick="location.reload()">CLOSE</button>
-    </div>
-
-    <div class="header">B-ALERT BATARAZA</div>
-    
-    <div class="container">
-        <div id="map"></div>
-
-        <div>
-            <span class="category-label">Emergency Type:</span>
-            <div class="categories" style="margin-top: 5px;">
-                <div class="chip active" onclick="selectCategory('Medical', this)">Medical 🏥</div>
-                <div class="chip" onclick="selectCategory('Fire', this)">Fire 🚒</div>
-                <div class="chip" onclick="selectCategory('Police', this)">Police 👮</div>
-            </div>
-        </div>
-
-        <div>
-            <img id="photo-preview" src="">
-            <button class="photo-btn" onclick="document.getElementById('camera-input').click()">📸 TAKE PHOTO (Optional)</button>
-            <input type="file" id="camera-input" accept="image/*" capture="camera" style="display:none" onchange="processPhoto(this)">
-        </div>
-
-        <div class="sos-container">
-            <div class="pulse-ring" id="pulse"></div>
-            <button class="sos-btn" id="mainSosBtn" onclick="startSOSCountdown()">
-                <span id="sos-text">SOS</span>
-                <span id="countdown-display">3</span>
-            </button>
-        </div>
-
-        <div>
-            <button class="cancel-btn" id="cancelBtn" onclick="cancelSOS()">CANCEL SOS</button>
-            <p id="status">Locating...</p>
-        </div>
-    </div>
-
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
-            projectId: "b-alert-bataraza"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
+        projectId: "b-alert-bataraza"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        let selectedCategory = "Medical";
-        let lastKnownPosition = null;
-        let countdownTimer = null;
-        let compressedImageBase64 = null;
-        let map, marker;
+    let selectedCategory = "Medical";
+    let lastKnownPosition = null;
+    let countdownTimer = null;
+    let compressedImageBase64 = null;
+    let map, marker;
 
-        // --- SERVICE WORKER REGISTRATION (Para sa PWA) ---
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => console.log("SW failed"));
-        }
-
-        function initMap() {
-            map = L.map('map', { zoomControl: false }).setView([8.3542, 117.3515], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            marker = L.marker([8.3542, 117.3515]).addTo(map);
-        }
-
-        window.onload = () => {
-            initMap();
-            if(localStorage.getItem('b_alert_user')) {
-                document.getElementById('registration-overlay').style.display = 'none';
-            }
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
-                    (pos) => { 
-                        lastKnownPosition = pos;
-                        const lat = pos.coords.latitude;
-                        const lng = pos.coords.longitude;
-                        marker.setLatLng([lat, lng]);
-                        map.setView([lat, lng], 16);
-                        document.getElementById('status').innerText = "GPS Active. Ready.";
-                    },
-                    null, { enableHighAccuracy: true }
-                );
-            }
-        };
-
-        window.saveUserInfo = () => {
-            const name = document.getElementById('user-name').value.trim();
-            const phone = document.getElementById('user-phone').value.trim();
-            if(name.length >= 4 && /^09\d{9}$/.test(phone)) {
-                localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
-                document.getElementById('registration-overlay').style.display = 'none';
-            } else { alert("Ayusin ang impormasyon."); }
-        };
-
-        window.processPhoto = async (input) => {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.readAsDataURL(input.files[0]);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = 400; canvas.height = 400;
-                        ctx.drawImage(img, 0, 0, 400, 400);
-                        compressedImageBase64 = canvas.toDataURL('image/jpeg', 0.5);
-                        document.getElementById('photo-preview').src = compressedImageBase64;
-                        document.getElementById('photo-preview').style.display = 'block';
-                    };
-                };
-            }
-        };
-
-        window.selectCategory = (cat, el) => {
-            selectedCategory = cat;
-            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-        };
-
-        window.startSOSCountdown = () => {
-            let timeLeft = 3;
-            const sosText = document.getElementById('sos-text');
-            const countdownDisplay = document.getElementById('countdown-display');
-            const cancelBtn = document.getElementById('cancelBtn');
-            const pulse = document.getElementById('pulse');
-
-            sosText.style.display = 'none';
-            countdownDisplay.style.display = 'block';
-            countdownDisplay.innerText = timeLeft;
-            cancelBtn.style.visibility = 'visible';
-            pulse.style.display = 'block';
-
-            countdownTimer = setInterval(() => {
-                timeLeft--;
-                countdownDisplay.innerText = timeLeft;
-                if (timeLeft <= 0) {
-                    clearInterval(countdownTimer);
-                    triggerSOS();
-                }
-            }, 1000);
-        };
-
-        window.cancelSOS = () => {
-            clearInterval(countdownTimer);
-            location.reload();
-        };
-
-        const triggerSOS = () => {
-            document.getElementById('lock-overlay').style.display = 'flex';
-            const lat = lastKnownPosition ? lastKnownPosition.coords.latitude : 8.3542;
-            const lng = lastKnownPosition ? lastKnownPosition.coords.longitude : 117.3515;
-
-            if (!navigator.onLine) {
-                sendSMS(lat, lng);
-            } else {
-                sendToFirebase(lat, lng);
-            }
-        };
-
-        const sendSMS = (lat, lng) => {
-            const user = JSON.parse(localStorage.getItem('b_alert_user'));
-            const hotlineNumber = "09123456789"; 
-            const msg = `B-ALERT SOS!🚨\nName: ${user.name}\nType: ${selectedCategory.toUpperCase()}\nLoc: http://maps.google.com/maps?q=${lat},${lng}`;
-            
-            document.getElementById('lock-header').innerText = "OFFLINE MODE";
-            document.getElementById('lock-header').style.color = "#ff9800";
-            document.getElementById('lock-msg').innerHTML = "No internet! Pakipindot ang <b>SEND</b> sa SMS app na magbubukas.";
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('close-overlay').style.display = 'block';
-
-            setTimeout(() => {
-                window.location.href = `sms:${hotlineNumber}?body=${encodeURIComponent(msg)}`;
-            }, 1500);
-        };
-
-        const sendToFirebase = async (lat, lng) => {
-            const user = JSON.parse(localStorage.getItem('b_alert_user'));
+    // --- NEW: AUTO-SYNC FUNCTION ---
+    // Ito ang titingin kung may "utang" na report sa LocalStorage
+    async function checkOfflineSync() {
+        const pending = localStorage.getItem('pending_sos');
+        if (navigator.onLine && pending) {
+            console.log("Internet detected. Syncing offline report...");
+            const data = JSON.parse(pending);
             try {
                 await addDoc(collection(db, "alerts"), {
-                    sender: user.name,
-                    phone: user.phone,
-                    category: selectedCategory,
-                    latitude: lat,
-                    longitude: lng,
-                    photo_proof: compressedImageBase64 || "No photo",
-                    status: "Pending",
-                    timestamp: serverTimestamp()
+                    ...data,
+                    timestamp: serverTimestamp() // Server time ang gagamitin para accurate
                 });
-                document.getElementById('lock-header').innerText = "ALERT SENT!";
-                document.getElementById('lock-header').style.color = "#4caf50";
-                document.getElementById('lock-msg').innerText = "Help is on the way. Stay where you are.";
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('close-overlay').style.display = 'block';
-            } catch (e) {
-                alert("Error sending alert.");
-                location.reload();
+                localStorage.removeItem('pending_sos'); // Burahin na kapag uploaded na
+                console.log("Offline report synced successfully.");
+            } catch (e) { 
+                console.error("Sync failed, will retry later.", e); 
             }
-        };
-    </script>
+        }
+    }
+
+    // Pakikinggan kung kailan babalik ang internet
+    window.addEventListener('online', checkOfflineSync);
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => console.log("SW failed"));
+    }
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([8.3542, 117.3515], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([8.3542, 117.3515]).addTo(map);
+    }
+
+    window.onload = () => {
+        initMap();
+        checkOfflineSync(); // I-check agad kung may pending sync pagbukas ng app
+        
+        if(localStorage.getItem('b_alert_user')) {
+            document.getElementById('registration-overlay').style.display = 'none';
+        }
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (pos) => { 
+                    lastKnownPosition = pos;
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    marker.setLatLng([lat, lng]);
+                    map.setView([lat, lng], 16);
+                    document.getElementById('status').innerText = "GPS Active. Ready.";
+                },
+                null, { enableHighAccuracy: true }
+            );
+        }
+    };
+
+    window.saveUserInfo = () => {
+        const name = document.getElementById('user-name').value.trim();
+        const phone = document.getElementById('user-phone').value.trim();
+        if(name.length >= 4 && /^09\d{9}$/.test(phone)) {
+            localStorage.setItem('b_alert_user', JSON.stringify({name, phone}));
+            document.getElementById('registration-overlay').style.display = 'none';
+        } else { alert("Ayusin ang impormasyon."); }
+    };
+
+    window.processPhoto = async (input) => {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.readAsDataURL(input.files[0]);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 400; canvas.height = 400;
+                    ctx.drawImage(img, 0, 0, 400, 400);
+                    compressedImageBase64 = canvas.toDataURL('image/jpeg', 0.5);
+                    document.getElementById('photo-preview').src = compressedImageBase64;
+                    document.getElementById('photo-preview').style.display = 'block';
+                };
+            };
+        }
+    };
+
+    window.selectCategory = (cat, el) => {
+        selectedCategory = cat;
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+    };
+
+    window.startSOSCountdown = () => {
+        let timeLeft = 3;
+        const sosText = document.getElementById('sos-text');
+        const countdownDisplay = document.getElementById('countdown-display');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const pulse = document.getElementById('pulse');
+
+        sosText.style.display = 'none';
+        countdownDisplay.style.display = 'block';
+        countdownDisplay.innerText = timeLeft;
+        cancelBtn.style.visibility = 'visible';
+        pulse.style.display = 'block';
+
+        countdownTimer = setInterval(() => {
+            timeLeft--;
+            countdownDisplay.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(countdownTimer);
+                triggerSOS();
+            }
+        }, 1000);
+    };
+
+    window.cancelSOS = () => {
+        clearInterval(countdownTimer);
+        location.reload();
+    };
+
+    // --- UPDATED: triggerSOS with Sync Support ---
+    const triggerSOS = () => {
+        document.getElementById('lock-overlay').style.display = 'flex';
+        const lat = lastKnownPosition ? lastKnownPosition.coords.latitude : 8.3542;
+        const lng = lastKnownPosition ? lastKnownPosition.coords.longitude : 117.3515;
+
+        if (!navigator.onLine) {
+            // I-save ang data sa LocalStorage para sa background sync
+            const user = JSON.parse(localStorage.getItem('b_alert_user'));
+            const offlineData = {
+                sender: user.name,
+                phone: user.phone,
+                category: selectedCategory,
+                latitude: lat,
+                longitude: lng,
+                photo_proof: compressedImageBase64 || "No photo",
+                status: "Resolved (Offline Sync)", // Resolved agad para hindi mag-alarm sa dashboard
+                source: "Sync" // Label para alam ng dashboard na luma na ito
+            };
+            localStorage.setItem('pending_sos', JSON.stringify(offlineData));
+            
+            sendSMS(lat, lng);
+        } else {
+            sendToFirebase(lat, lng);
+        }
+    };
+
+    const sendSMS = (lat, lng) => {
+        const user = JSON.parse(localStorage.getItem('b_alert_user'));
+        const hotlineNumber = "09123456789"; 
+        const msg = `B-ALERT SOS!🚨\nName: ${user.name}\nType: ${selectedCategory.toUpperCase()}\nLoc: https://maps.google.com/?q=${lat},${lng}`;
+        
+        document.getElementById('lock-header').innerText = "OFFLINE MODE";
+        document.getElementById('lock-header').style.color = "#ff9800";
+        document.getElementById('lock-msg').innerHTML = "No internet! Pakipindot ang <b>SEND</b> sa SMS app na magbubukas.";
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('close-overlay').style.display = 'block';
+
+        setTimeout(() => {
+            window.location.href = `sms:${hotlineNumber}?body=${encodeURIComponent(msg)}`;
+        }, 1500);
+    };
+
+    const sendToFirebase = async (lat, lng) => {
+        const user = JSON.parse(localStorage.getItem('b_alert_user'));
+        try {
+            await addDoc(collection(db, "alerts"), {
+                sender: user.name,
+                phone: user.phone,
+                category: selectedCategory,
+                latitude: lat,
+                longitude: lng,
+                photo_proof: compressedImageBase64 || "No photo",
+                status: "Pending",
+                source: "Live", // Label para tumunog ang alarm sa dashboard
+                timestamp: serverTimestamp()
+            });
+            document.getElementById('lock-header').innerText = "ALERT SENT!";
+            document.getElementById('lock-header').style.color = "#4caf50";
+            document.getElementById('lock-msg').innerText = "Help is on the way. Stay where you are.";
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('close-overlay').style.display = 'block';
+        } catch (e) {
+            alert("Error sending alert.");
+            location.reload();
+        }
+    };
+</script>
 </body>
 </html>
