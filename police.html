@@ -86,6 +86,37 @@
             });
         }, 30000);
 
+        // Function para i-check ang urgency ng mga cards bawat 30 seconds
+setInterval(() => {
+    document.querySelectorAll('.card').forEach(card => {
+        // Huwag pansinin ang mga Resolved na
+        if (card.classList.contains('resolved')) return;
+
+        const timeAgoEl = card.querySelector('.time-ago');
+        const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
+
+        if (ts) {
+            const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
+            
+            // Kung 5 mins o higit na, dagdagan ng 'critical' class at ipakita ang label
+            if (minutesPassed >= 5) {
+                if (!card.classList.contains('critical')) {
+                    card.classList.add('critical');
+                    
+                    // Dagdagan ng OVERDUE label sa header kung wala pa
+                    const warningDiv = card.querySelector('.warning') || card.querySelector('div[style*="font-weight:bold"]');
+                    if (warningDiv && !warningDiv.querySelector('.critical-label')) {
+                        const label = document.createElement('span');
+                        label.className = 'critical-label';
+                        label.innerText = '⚠️ OVERDUE';
+                        warningDiv.appendChild(label);
+                    }
+                }
+            }
+        }
+    });
+}, 30000); // Tumatakbo bawat 30 seconds
+
         const statusEl = document.getElementById('connection-status');
         window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
         window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
