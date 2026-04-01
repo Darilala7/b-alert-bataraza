@@ -23,7 +23,7 @@
         .counter-box h3 { margin: 0; font-size: 10px; color: #777; text-transform: uppercase; }
         .counter-box .count { font-size: 22px; font-weight: bold; color: #333; }
 
-        /* --- ITEM #3: URGENCY ANIMATION (IBINALIK) --- */
+        /* Animation */
         @keyframes critical-flash {
             0% { background-color: white; }
             50% { background-color: #ffebee; border-left-color: #ff1744; }
@@ -35,13 +35,8 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 10px solid var(--primary); 
             transition: 0.3s; position: relative; 
         }
-
-        .card.critical { 
-            animation: critical-flash 1.5s infinite; 
-            border-left: 10px solid #ff1744 !important; 
-        }
-
-        .card.resolved { border-left: 10px solid var(--success); opacity: 0.7; animation: none; }
+        .card.critical { animation: critical-flash 1.5s infinite; border-left-color: #ff1744 !important; }
+        .card.resolved { border-left: 10px solid var(--success); opacity: 0.8; animation: none; }
         
         .critical-label { 
             background: #ff1744; color: white; font-size: 10px; padding: 2px 6px; 
@@ -59,6 +54,7 @@
         .warning { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
         .info { font-size: 14px; margin: 4px 0; color: #444; }
         .time-ago { color: var(--danger); font-weight: bold; }
+        .resolved-date { color: var(--success); font-weight: bold; font-size: 13px; }
         .btn-maps { display: block; background: var(--primary); color: white; text-decoration: none; padding: 10px; border-radius: 5px; font-weight: bold; margin-top: 10px; text-align: center; font-size: 13px; }
         .btn-resolved { background: var(--success); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; margin-top: 8px; font-weight: bold; width: 100%; }
     </style>
@@ -156,30 +152,15 @@
             return "Just now";
         }
 
-        // --- FIXED URGENCY LOGIC ---
         setInterval(() => {
             document.querySelectorAll('.card').forEach(card => {
                 if (card.classList.contains('resolved')) return;
-                
-                const timeAgoEl = card.querySelector('.time-ago');
-                const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
-                
-                if (ts) {
-                    const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
-                    if (minutesPassed >= 5) {
-                        if (!card.classList.contains('critical')) {
-                            card.classList.add('critical');
-                            if (!card.querySelector('.critical-label')) {
-                                const label = document.createElement('span');
-                                label.className = 'critical-label';
-                                label.innerText = '⚠️ OVERDUE';
-                                card.appendChild(label);
-                            }
-                        }
-                    }
+                const ts = card.querySelector('.time-ago')?.getAttribute('data-ts');
+                if (ts && Math.floor((new Date() - new Date(parseInt(ts))) / 60000) >= 5) {
+                    card.classList.add('critical');
                 }
             });
-        }, 10000); // Check every 10 seconds para mas responsive
+        }, 10000);
 
         const siren = new Audio('siren.mp3');
         let isInitialLoad = true;
@@ -199,11 +180,23 @@
                 const data = alertDoc.data();
                 data.status === "Pending" ? pCount++ : rCount++;
                 const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
-                const ts = tsDate.getTime();
-                
-                // Real-time check during render
                 const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
                 const isCritical = data.status === "Pending" && minutesPassed >= 5;
+
+                // Photo and Resolved Logic
+                let photoHtml = "";
+                if (data.photo_proof && data.photo_proof !== "No photo" && data.photo_proof !== "Manual Entry (SMS)") {
+                    photoHtml = `
+                        <span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; font-size: 13px; display: block; margin-top: 5px;" onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO</span>
+                        <img src="${data.photo_proof}" style="width: 100%; max-width: 300px; border-radius: 5px; margin-top: 8px; display: none; border: 1px solid #ddd;" onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">
+                    `;
+                }
+
+                let resolvedInfo = "";
+                if (data.status === "Resolved" && data.resolved_at) {
+                    const rDate = data.resolved_at.toDate();
+                    resolvedInfo = `<div class="resolved-date">✅ Resolved on: ${rDate.toLocaleString()}</div>`;
+                }
 
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
@@ -214,8 +207,10 @@
                     ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'}</div>
-                    <div class="info"><strong>Received:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
-                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="btn-maps">📍 OPEN LOCATION</a>
+                    <div class="info"><strong>Received:</strong> <span class="time-ago" data-ts="${tsDate.getTime()}">${getTimeAgo(data.timestamp)}</span></div>
+                    ${resolvedInfo}
+                    ${photoHtml}
+                    <a href="https://www.google.com/maps?q=lat,lng{data.latitude},${data.longitude}" target="_blank" class="btn-maps">📍 OPEN LOCATION</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
