@@ -38,7 +38,7 @@
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
         .modal-content h3 { margin-top: 0; color: #1565c0; border-bottom: 2px solid #e3f2fd; padding-bottom: 10px; }
-        .modal-content input, .modal-content textarea {
+        .modal-content input {
             width: 100%; margin-top: 12px; padding: 12px; border: 1px solid #ccc; 
             border-radius: 6px; box-sizing: border-box; font-family: inherit;
         }
@@ -102,11 +102,15 @@
     <div id="manual-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Manual SMS Report</h3>
-            <p style="font-size: 12px; color: #666; margin: 0;">I-record ang emergency mula sa tawag o SMS.</p>
+            <p style="font-size: 12px; color: #666; margin: 0;">I-record ang emergency gamit ang GPS coordinates.</p>
             
             <input type="text" id="manual-sender" placeholder="Pangalan ng Pasyente/Sender">
             <input type="tel" id="manual-phone" placeholder="Phone Number (e.g. 09123456789)">
-            <textarea id="manual-loc" placeholder="Lokasyon (Landmark / Barangay)" rows="3"></textarea>
+            
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="manual-lat" placeholder="Latitude (Lat)" step="any">
+                <input type="number" id="manual-lng" placeholder="Longitude (Lng)" step="any">
+            </div>
 
             <div class="modal-actions">
                 <button class="btn-modal-cancel" onclick="document.getElementById('manual-modal').style.display='none'">CANCEL</button>
@@ -123,14 +127,15 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- NEW: Function to Submit Manual Report ---
+        // --- UPDATED: Submit Logic with Lat and Lng ---
         document.getElementById('submit-manual-btn').onclick = async () => {
             const sender = document.getElementById('manual-sender').value.trim();
             const phone = document.getElementById('manual-phone').value.trim();
-            const locText = document.getElementById('manual-loc').value.trim();
+            const lat = document.getElementById('manual-lat').value.trim();
+            const lng = document.getElementById('manual-lng').value.trim();
 
-            if (!sender || !phone || !locText) {
-                alert("Pakisagutan ang lahat ng fields.");
+            if (!sender || !phone || !lat || !lng) {
+                alert("Pakisagutan ang lahat ng fields, kabilang ang Lat at Lng.");
                 return;
             }
 
@@ -139,20 +144,20 @@
                     sender: sender + " (Manual)",
                     phone: phone,
                     category: "Medical",
-                    location_text: locText, // Dahil manual ito, text-based location
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lng),
                     status: "Pending",
                     timestamp: serverTimestamp(),
-                    latitude: 8.3542, // Default Bataraza coords
-                    longitude: 117.3515,
                     photo_proof: "No photo"
                 });
 
                 alert("Manual report saved!");
                 document.getElementById('manual-modal').style.display = 'none';
-                // Clear fields
+                
                 document.getElementById('manual-sender').value = "";
                 document.getElementById('manual-phone').value = "";
-                document.getElementById('manual-loc').value = "";
+                document.getElementById('manual-lat').value = "";
+                document.getElementById('manual-lng').value = "";
             } catch (e) {
                 alert("Error saving: " + e.message);
             }
@@ -244,11 +249,6 @@
                 const card = document.createElement('div');
                 card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
                 
-                // Display location: coordinate link or manual text
-                const locationDisplay = data.location_text ? 
-                    `<div class="info"><strong>Location:</strong> ${data.location_text}</div>` : 
-                    `<a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>`;
-
                 card.innerHTML = `
                     <div class="warning" style="color: ${data.status === 'Resolved' ? '#2e7d32' : '#1565c0'};">
                         ${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}
@@ -260,6 +260,7 @@
                         </div>` : ''}
                     <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
+                    <div class="info"><strong>Coordinates:</strong> ${data.latitude}, ${data.longitude}</div>
                     <div class="info"><strong>Status:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
                     
                     ${data.photo_proof && data.photo_proof !== "No photo" ?  
@@ -268,9 +269,9 @@
                          <img src="${data.photo_proof}" 
                               style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
                               onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
-                        : (data.location_text ? '' : '<div style="margin:5px 0;"><em>No photo provided</em></div>')}
+                        : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
                     
-                    ${locationDisplay}
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW ON GOOGLE MAPS</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
