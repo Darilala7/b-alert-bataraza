@@ -63,157 +63,151 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        function getTimeAgo(timestamp) {
-            if (!timestamp) return "Just now";
-            const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
-            let interval = Math.floor(seconds / 60);
-            return interval >= 1 ? interval + "m ago" : "Just now";
-        }
+    function getTimeAgo(timestamp) {
+        if (!timestamp) return "Just now";
+        const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
+        let interval = Math.floor(seconds / 60);
+        return interval >= 1 ? interval + "m ago" : "Just now";
+    }
 
-        setInterval(() => {
-            document.querySelectorAll('.time-ago').forEach(el => {
-                const ts = el.getAttribute('data-ts');
-                if (ts) {
-                    const date = new Date(parseInt(ts));
-                    el.innerText = getTimeAgo({ toDate: () => date });
-                }
-            });
-        }, 30000);
-
-        // Function para i-check ang urgency ng mga cards bawat 30 seconds
-setInterval(() => {
-    document.querySelectorAll('.card').forEach(card => {
-        // Huwag pansinin ang mga Resolved na
-        if (card.classList.contains('resolved')) return;
-
-        const timeAgoEl = card.querySelector('.time-ago');
-        const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
-
-        if (ts) {
-            const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
-            
-            // Kung 5 mins o higit na, dagdagan ng 'critical' class at ipakita ang label
-            if (minutesPassed >= 5) {
-                if (!card.classList.contains('critical')) {
-                    card.classList.add('critical');
-                    
-                    // Dagdagan ng OVERDUE label sa header kung wala pa
-                    const warningDiv = card.querySelector('.warning') || card.querySelector('div[style*="font-weight:bold"]');
-                    if (warningDiv && !warningDiv.querySelector('.critical-label')) {
-                        const label = document.createElement('span');
-                        label.className = 'critical-label';
-                        label.innerText = '⚠️ OVERDUE';
-                        warningDiv.appendChild(label);
+    // --- EXISTING URGENCY CHECKER (30s) ---
+    setInterval(() => {
+        document.querySelectorAll('.card').forEach(card => {
+            if (card.classList.contains('resolved')) return;
+            const timeAgoEl = card.querySelector('.time-ago');
+            const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
+            if (ts) {
+                const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
+                if (minutesPassed >= 5) {
+                    if (!card.classList.contains('critical')) {
+                        card.classList.add('critical');
+                        const warningDiv = card.querySelector('.warning') || card.querySelector('div[style*="font-weight:bold"]');
+                        if (warningDiv && !warningDiv.querySelector('.critical-label')) {
+                            const label = document.createElement('span');
+                            label.className = 'critical-label';
+                            label.innerText = '⚠️ OVERDUE';
+                            warningDiv.appendChild(label);
+                        }
                     }
                 }
             }
-        }
-    });
-}, 30000); // Tumatakbo bawat 30 seconds
-
-        const statusEl = document.getElementById('connection-status');
-        window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
-        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
-
-        const siren = new Audio('siren.mp3');
-        if (Notification.permission !== "granted") Notification.requestPermission();
-        window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
-
-        let isInitialLoad = true;
-        const q = query(collection(db, "alerts"), where("category", "==", "Fire"), orderBy("timestamp", "desc"));
-
-        onSnapshot(q, (snapshot) => {
-            const list = document.getElementById('alerts-list');
-            let pCount = 0;
-            let rCount = 0;
-
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-                    siren.play().catch(e => {});
-                    if (Notification.permission === "granted") new Notification("🔥 FIRE ALERT", { body: `Sender: ${change.doc.data().sender}` });
-                }
-            });
-
-            isInitialLoad = false;
-            list.innerHTML = "";
-
-            snapshot.forEach((alertDoc) => {
-                const data = alertDoc.data();
-                
-                // --- ITEM #1: COUNTER LOGIC ---
-                if (data.status === "Pending") pCount++;
-                else if (data.status === "Resolved") rCount++;
-
-                const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
-                const ts = tsDate.getTime();
-
-                // --- ITEM #3: URGENCY LOGIC (5 mins check) ---
-                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
-                const isCritical = data.status === "Pending" && minutesPassed >= 5;
-
-                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "Processing...";
-                
-                // --- ITEM #2: FIXED GOOGLE MAPS LINK ---
-                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
-                
-                const card = document.createElement('div');
-                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
-                card.innerHTML = `
-                    <div style="color:${data.status === "Resolved" ? '#2e7d32' : '#b71c1c'}; font-weight:bold;">
-                        ${data.status === "Resolved" ? '✅ RESOLVED' : '🔥 FIRE INCIDENT'}
-                        ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
-                    </div>
-
-                    ${data.status === "Resolved" ? 
-                        `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
-                            <strong>Resolved on:</strong> ${resolvedTime}
-                        </div>` : ''}
-
-                    <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
-                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
-                    <div style="margin:5px 0;"><strong>Reported:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
-                    
-                    ${data.photo_proof && data.photo_proof !== "No photo" ?  
-                        `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
-                               onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
-                         <img src="${data.photo_proof}" 
-                              style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
-                              onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
-                        : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
-
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION ON MAPS</a>
-                    ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
-                `;
-                list.appendChild(card);
-            });
-
-            // I-update ang UI counters
-            document.getElementById('pending-count').innerText = pCount;
-            document.getElementById('resolved-count').innerText = rCount;
         });
+    }, 30000);
 
-        window.markAsResolved = async (id) => { 
-            const confirmResolve = confirm("Are you sure you want to mark this fire incident as RESOLVED?");
-            if (confirmResolve) {
-                try {
-                    const alertRef = doc(db, "alerts", id);
-                    await updateDoc(alertRef, { 
-                        status: "Resolved",
-                        resolved_at: serverTimestamp()
-                    });
-                } catch (e) {
-                    console.error(e);
-                    alert("Error updating status.");
+    const statusEl = document.getElementById('connection-status');
+    window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
+    window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
+
+    const siren = new Audio('siren.mp3');
+    if (Notification.permission !== "granted") Notification.requestPermission();
+    window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
+
+    let isInitialLoad = true;
+    const q = query(collection(db, "alerts"), where("category", "==", "Fire"), orderBy("timestamp", "desc"));
+
+    onSnapshot(q, (snapshot) => {
+        const list = document.getElementById('alerts-list');
+        let pCount = 0;
+        let rCount = 0;
+
+        snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            
+            // --- UPDATED SMART SIREN LOGIC ---
+            // Alarm lang kung Live at Pending
+            if (change.type === "added" && !isInitialLoad) {
+                if (data.status === "Pending" && data.source === "Live") {
+                    siren.play().catch(e => {});
+                    if (Notification.permission === "granted") {
+                        new Notification("🔥 FIRE ALERT", { body: `Sender: ${data.sender}` });
+                    }
                 }
             }
-        };
-    </script>
+        });
+
+        isInitialLoad = false;
+        list.innerHTML = "";
+
+        snapshot.forEach((alertDoc) => {
+            const data = alertDoc.data();
+            
+            // --- COUNTER LOGIC (Updated to include Sync status) ---
+            const isResolvedStatus = data.status.includes("Resolved");
+            if (data.status === "Pending") pCount++;
+            else if (isResolvedStatus) rCount++;
+
+            const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
+            const ts = tsDate.getTime();
+
+            const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
+            const isCritical = data.status === "Pending" && minutesPassed >= 5;
+
+            const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
+            const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+            
+            // UI Badge for Sync vs Live
+            const sourceBadge = data.source === "Sync" 
+                ? '<span style="background:#455a64; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:10px; vertical-align:middle;">OFFLINE SYNC</span>' 
+                : '<span style="background:#e64a19; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:10px; vertical-align:middle;">LIVE</span>';
+
+            const card = document.createElement('div');
+            card.className = `card ${isResolvedStatus ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
+            card.innerHTML = `
+                <div class="warning" style="color:${isResolvedStatus ? '#2e7d32' : '#b71c1c'}; font-weight:bold;">
+                    ${isResolvedStatus ? '✅ RESOLVED' : '🔥 FIRE INCIDENT'}
+                    ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
+                    ${sourceBadge}
+                </div>
+
+                ${isResolvedStatus ? 
+                    `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
+                        <strong>Resolved on:</strong> ${resolvedTime} (Source: ${data.source || 'Live'})
+                    </div>` : ''}
+
+                <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
+                <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
+                <div style="margin:5px 0;"><strong>Sent:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
+                
+                ${data.photo_proof && data.photo_proof !== "No photo" ?  
+                    `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
+                           onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
+                     <img src="${data.photo_proof}" 
+                          style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
+                          onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
+                    : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
+
+                <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION ON MAPS</a>
+                ${!isResolvedStatus ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
+            `;
+            list.appendChild(card);
+        });
+
+        document.getElementById('pending-count').innerText = pCount;
+        document.getElementById('resolved-count').innerText = rCount;
+    });
+
+    window.markAsResolved = async (id) => { 
+        const confirmResolve = confirm("Are you sure you want to mark this fire incident as RESOLVED?");
+        if (confirmResolve) {
+            try {
+                const alertRef = doc(db, "alerts", id);
+                await updateDoc(alertRef, { 
+                    status: "Resolved",
+                    resolved_at: serverTimestamp()
+                });
+            } catch (e) {
+                console.error(e);
+                alert("Error updating status.");
+            }
+        }
+    };
+</script>
 </body>
 </html>
