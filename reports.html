@@ -5,10 +5,21 @@
     <title>B-ALERT SOS - Weekly Summary Report</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #e65100; padding-bottom: 10px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e65100; padding-bottom: 10px; }
         h2 { color: #e65100; margin: 0; }
         .btn-print { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         
+        /* --- NEW: FILTER STYLES --- */
+        .filter-section {
+            background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 12px; font-weight: bold; color: #666; }
+        .filter-group input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        .search-box { flex: 2; min-width: 200px; }
+        .btn-reset { background: #f5f5f5; border: 1px solid #ddd; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+
         table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; color: #333; }
@@ -19,7 +30,7 @@
         .bg-police { background: #1a237e; }
         
         @media print {
-            .btn-print { display: none; }
+            .btn-print, .filter-section { display: none; }
             body { background: white; padding: 0; }
         }
     </style>
@@ -34,6 +45,22 @@
         <button class="btn-print" onclick="window.print()">🖨️ PRINT REPORT</button>
     </div>
 
+    <div class="filter-section">
+        <div class="filter-group search-box">
+            <label>Search Records</label>
+            <input type="text" id="search-input" placeholder="🔍 Search by Name, Phone, or Category...">
+        </div>
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" id="date-from">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" id="date-to">
+        </div>
+        <button class="btn-reset" onclick="resetFilters()">Reset</button>
+    </div>
+
     <table>
         <thead>
             <tr>
@@ -44,13 +71,12 @@
                 <th>Status</th>
             </tr>
         </thead>
-        <tbody id="report-table">
-            </tbody>
+        <tbody id="report-table"></tbody>
     </table>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk",
@@ -60,31 +86,33 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 1. Gawing simple ang query (Status lang ang filter)
+        let allReports = []; // Para sa client-side filtering
+
         const q = query(
             collection(db, "alerts"), 
             where("status", "==", "Resolved")
         );
 
         onSnapshot(q, (snapshot) => {
+            // I-convert snapshot to array at i-sort (Bago sa taas)
+            allReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                    const timeA = a.timestamp ? a.timestamp.toDate() : 0;
+                    const timeB = b.timestamp ? b.timestamp.toDate() : 0;
+                    return timeB - timeA;
+                });
+            
+            applyFilters(); // Tawagin ang filter function
+        });
+
+        function renderTable(dataList) {
             const tableBody = document.getElementById('report-table');
             tableBody.innerHTML = "";
 
-            // 2. I-convert sa array para ma-sort natin manually kahit may missing fields
-            const sortedDocs = snapshot.docs.sort((a, b) => {
-                const timeA = a.data().timestamp ? a.data().timestamp.toDate() : 0;
-                const timeB = b.data().timestamp ? b.data().timestamp.toDate() : 0;
-                return timeB - timeA; // Bago sa taas
-            });
-
-            sortedDocs.forEach((alertDoc) => {
-                const data = alertDoc.data();
-                
-                // Formatting ng Dates
+            dataList.forEach((data) => {
                 const reportedDate = data.timestamp ? data.timestamp.toDate().toLocaleString('en-PH') : "Old Record";
                 const resolvedDate = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
                 
-                // Safety check para sa Coordinates
                 const lat = (data.latitude && typeof data.latitude === 'number') ? data.latitude.toFixed(4) : "0.0000";
                 const long = (data.longitude && typeof data.longitude === 'number') ? data.longitude.toFixed(4) : "0.0000";
                 
@@ -111,7 +139,53 @@
                 `;
                 tableBody.appendChild(row);
             });
-        });
+        }
+
+        /* --- FILTERING LOGIC --- */
+        function applyFilters() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const fromDate = document.getElementById('date-from').value;
+            const toDate = document.getElementById('date-to').value;
+
+            const filtered = allReports.filter(report => {
+                // Search check
+                const name = (report.sender || "").toLowerCase();
+                const phone = (report.phone || "");
+                const cat = (report.category || "").toLowerCase();
+                const matchesSearch = name.includes(searchTerm) || phone.includes(searchTerm) || cat.includes(searchTerm);
+
+                // Date check
+                let matchesDate = true;
+                const rDate = report.timestamp ? report.timestamp.toDate() : null;
+                
+                if (fromDate && rDate) {
+                    const start = new Date(fromDate);
+                    start.setHours(0,0,0,0);
+                    if (rDate < start) matchesDate = false;
+                }
+                if (toDate && rDate) {
+                    const end = new Date(toDate);
+                    end.setHours(23,59,59,999);
+                    if (rDate > end) matchesDate = false;
+                }
+
+                return matchesSearch && matchesDate;
+            });
+
+            renderTable(filtered);
+        }
+
+        // Event Listeners for Live Filter
+        document.getElementById('search-input').addEventListener('input', applyFilters);
+        document.getElementById('date-from').addEventListener('change', applyFilters);
+        document.getElementById('date-to').addEventListener('change', applyFilters);
+
+        window.resetFilters = () => {
+            document.getElementById('search-input').value = "";
+            document.getElementById('date-from').value = "";
+            document.getElementById('date-to').value = "";
+            renderTable(allReports);
+        };
     </script>
 </body>
 </html>
