@@ -20,7 +20,7 @@
         /* Right Content: Alerts List */
         .content-area { flex: 1; padding: 20px; overflow-y: auto; background: #e3f2fd; }
 
-        #map { width: 100%; height: 200px; border-radius: 8px; border: 1px solid #ccc; flex-shrink: 0; }
+        #map { width: 100%; height: 220px; border-radius: 8px; border: 1px solid #ccc; flex-shrink: 0; }
 
         /* Counters */
         .counter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -35,13 +35,14 @@
         .form-group { display: flex; flex-direction: column; gap: 8px; }
         .manual-form input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
         .coord-row { display: flex; gap: 5px; }
-        .btn-gps { background: var(--warning); color: white; border: none; padding: 0 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-gps { background: var(--warning); color: white; border: none; padding: 0 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 18px; }
         .btn-upload { background: var(--success); color: white; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
         .btn-upload:hover { opacity: 0.9; }
 
         /* Alert Cards */
         .card { background: white; margin-bottom: 15px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 8px solid var(--primary); transition: 0.3s; position: relative; }
         .card.resolved { border-left-color: var(--success); opacity: 0.8; }
+        
         @keyframes critical-flash { 0%, 100% { background-color: white; } 50% { background-color: #ffebee; } }
         .card.critical { animation: critical-flash 1.5s infinite; border-left-color: #ff1744 !important; }
         .critical-label { background: #ff1744; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; position: absolute; right: 15px; top: 15px; }
@@ -107,13 +108,16 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // --- MAP SETUP ---
         let map = L.map('map').setView([8.3542, 117.3515], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+        // --- GLOBAL FUNCTIONS (Para gumana ang onclick) ---
         window.getMapFromCenter = () => {
             const center = map.getCenter();
             document.getElementById('m-lat').value = center.lat.toFixed(6);
             document.getElementById('m-lng').value = center.lng.toFixed(6);
+            console.log("Coordinates captured!");
         };
 
         window.submitManualReport = async () => {
@@ -123,22 +127,46 @@
             const lng = parseFloat(document.getElementById('m-lng').value);
 
             if (!name || !phone || isNaN(lat) || isNaN(lng)) {
-                alert("Please fill in all fields.");
+                alert("Please fill in all fields (Name, Phone, Lat/Lng).");
                 return;
             }
 
             try {
                 await addDoc(collection(db, "alerts"), {
-                    sender: name, phone: phone, category: "Medical",
-                    latitude: lat, longitude: lng, photo_proof: "Manual Entry (SMS)",
-                    status: "Pending", source: "Manual", timestamp: serverTimestamp()
+                    sender: name, 
+                    phone: phone, 
+                    category: "Medical",
+                    latitude: lat, 
+                    longitude: lng, 
+                    photo_proof: "Manual Entry (SMS)",
+                    status: "Pending", 
+                    source: "Manual", 
+                    timestamp: serverTimestamp()
                 });
-                alert("SMS encoded!");
-                document.getElementById('m-name').value = ""; document.getElementById('m-phone').value = "";
-                document.getElementById('m-lat').value = ""; document.getElementById('m-lng').value = "";
-            } catch (e) { alert("Error: " + e.message); }
+                alert("SMS encoded successfully!");
+                document.getElementById('m-name').value = ""; 
+                document.getElementById('m-phone').value = "";
+                document.getElementById('m-lat').value = ""; 
+                document.getElementById('m-lng').value = "";
+            } catch (e) { 
+                alert("Error: " + e.message); 
+            }
         };
 
+        window.markAsResolved = async (id) => { 
+            if (confirm("Mark this as RESOLVED?")) {
+                try { 
+                    await updateDoc(doc(db, "alerts", id), { 
+                        status: "Resolved", 
+                        resolved_at: serverTimestamp() 
+                    }); 
+                } catch (e) { 
+                    alert("Error updating status."); 
+                }
+            }
+        };
+
+        // --- MONITORING LOGIC ---
         function getTimeAgo(timestamp) {
             if (!timestamp) return "Just now";
             const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
@@ -167,8 +195,7 @@
                 if (ts && Math.floor((new Date() - new Date(ts)) / 60000) >= 5) {
                     if (!card.classList.contains('critical')) {
                         card.classList.add('critical');
-                        const warningDiv = card.querySelector('.warning');
-                        if (warningDiv && !warningDiv.querySelector('.critical-label')) {
+                        if (!card.querySelector('.critical-label')) {
                             const label = document.createElement('span');
                             label.className = 'critical-label'; label.innerText = '⚠️ OVERDUE';
                             card.appendChild(label);
@@ -228,12 +255,9 @@
             document.getElementById('resolved-count').innerText = rCount;
         });
 
-        window.markAsResolved = async (id) => { 
-            if (confirm("Mark as RESOLVED?")) {
-                try { await updateDoc(doc(db, "alerts", id), { status: "Resolved", resolved_at: serverTimestamp() }); }
-                catch (e) { alert("Error."); }
-            }
-        };
+        const statusEl = document.getElementById('connection-status');
+        window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
+        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
     </script>
 </body>
 </html>
