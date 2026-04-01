@@ -11,41 +11,50 @@
         .nav { background: var(--primary); color: white; padding: 15px; text-align: center; font-size: 20px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; position: relative; }
         .status-indicator { position: absolute; right: 20px; top: 18px; font-size: 12px; padding: 5px 12px; border-radius: 20px; background: #4caf50; color: white; }
 
-        /* Main Layout */
         .main-wrapper { display: flex; height: calc(100vh - 55px); width: 100vw; }
-
-        /* Left Sidebar: Controls & Map */
         .sidebar { width: 400px; background: #fff; border-right: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
-        
-        /* Right Content: Alerts List */
         .content-area { flex: 1; padding: 20px; overflow-y: auto; background: #e3f2fd; }
 
         #map { width: 100%; height: 220px; border-radius: 8px; border: 1px solid #ccc; flex-shrink: 0; }
 
-        /* Counters */
         .counter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .counter-box { background: #fafafa; padding: 12px; border-radius: 8px; border-left: 5px solid var(--danger); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .counter-box { background: #fafafa; padding: 12px; border-radius: 8px; border-left: 5px solid var(--danger); }
         .counter-box.resolved { border-left-color: var(--success); }
         .counter-box h3 { margin: 0; font-size: 10px; color: #777; text-transform: uppercase; }
         .counter-box .count { font-size: 22px; font-weight: bold; color: #333; }
 
-        /* Manual Form */
-        .manual-form { border: 1px solid #eee; padding: 15px; border-radius: 8px; background: #f9f9f9; }
-        .manual-form h3 { margin-top: 0; font-size: 14px; color: var(--success); display: flex; align-items: center; gap: 5px; }
-        .form-group { display: flex; flex-direction: column; gap: 8px; }
-        .manual-form input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
-        .coord-row { display: flex; gap: 5px; }
-        .btn-gps { background: var(--warning); color: white; border: none; padding: 0 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 18px; }
-        .btn-upload { background: var(--success); color: white; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        .btn-upload:hover { opacity: 0.9; }
+        /* --- ITEM #3: URGENCY ANIMATION (IBINALIK) --- */
+        @keyframes critical-flash {
+            0% { background-color: white; }
+            50% { background-color: #ffebee; border-left-color: #ff1744; }
+            100% { background-color: white; }
+        }
 
-        /* Alert Cards */
-        .card { background: white; margin-bottom: 15px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 8px solid var(--primary); transition: 0.3s; position: relative; }
-        .card.resolved { border-left-color: var(--success); opacity: 0.8; }
+        .card { 
+            background: white; margin-bottom: 15px; padding: 15px; border-radius: 8px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 10px solid var(--primary); 
+            transition: 0.3s; position: relative; 
+        }
+
+        .card.critical { 
+            animation: critical-flash 1.5s infinite; 
+            border-left: 10px solid #ff1744 !important; 
+        }
+
+        .card.resolved { border-left: 10px solid var(--success); opacity: 0.7; animation: none; }
         
-        @keyframes critical-flash { 0%, 100% { background-color: white; } 50% { background-color: #ffebee; } }
-        .card.critical { animation: critical-flash 1.5s infinite; border-left-color: #ff1744 !important; }
-        .critical-label { background: #ff1744; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; position: absolute; right: 15px; top: 15px; }
+        .critical-label { 
+            background: #ff1744; color: white; font-size: 10px; padding: 2px 6px; 
+            border-radius: 4px; font-weight: bold; position: absolute; right: 15px; top: 15px; 
+        }
+
+        .manual-form { border: 1px solid #eee; padding: 15px; border-radius: 8px; background: #f9f9f9; }
+        .manual-form h3 { margin-top: 0; font-size: 14px; color: var(--success); }
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .manual-form input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .coord-row { display: flex; gap: 5px; }
+        .btn-gps { background: var(--warning); color: white; border: none; padding: 0 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-upload { background: var(--success); color: white; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
         .warning { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
         .info { font-size: 14px; margin: 4px 0; color: #444; }
@@ -73,9 +82,7 @@
                     <span id="resolved-count" class="count">0</span>
                 </div>
             </div>
-
             <div id="map"></div>
-
             <div class="manual-form">
                 <h3>📝 SMS Report Entry</h3>
                 <div class="form-group">
@@ -89,10 +96,8 @@
                     <button class="btn-upload" onclick="submitManualReport()">SAVE SMS ALERT</button>
                 </div>
             </div>
-            
             <p style="font-size: 11px; color: #999; text-align: center;">B-ALERT System v2.1 | LGU Bataraza</p>
         </div>
-
         <div class="content-area">
             <div id="alerts-list"></div>
         </div>
@@ -108,16 +113,13 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- MAP SETUP ---
         let map = L.map('map').setView([8.3542, 117.3515], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // --- GLOBAL FUNCTIONS (Para gumana ang onclick) ---
         window.getMapFromCenter = () => {
             const center = map.getCenter();
             document.getElementById('m-lat').value = center.lat.toFixed(6);
             document.getElementById('m-lng').value = center.lng.toFixed(6);
-            console.log("Coordinates captured!");
         };
 
         window.submitManualReport = async () => {
@@ -125,48 +127,25 @@
             const phone = document.getElementById('m-phone').value.trim();
             const lat = parseFloat(document.getElementById('m-lat').value);
             const lng = parseFloat(document.getElementById('m-lng').value);
-
-            if (!name || !phone || isNaN(lat) || isNaN(lng)) {
-                alert("Please fill in all fields (Name, Phone, Lat/Lng).");
-                return;
-            }
-
+            if (!name || !phone || isNaN(lat) || isNaN(lng)) { alert("Fill all fields."); return; }
             try {
                 await addDoc(collection(db, "alerts"), {
-                    sender: name, 
-                    phone: phone, 
-                    category: "Medical",
-                    latitude: lat, 
-                    longitude: lng, 
-                    photo_proof: "Manual Entry (SMS)",
-                    status: "Pending", 
-                    source: "Manual", 
-                    timestamp: serverTimestamp()
+                    sender: name, phone: phone, category: "Medical", latitude: lat, longitude: lng,
+                    photo_proof: "Manual Entry (SMS)", status: "Pending", source: "Manual", timestamp: serverTimestamp()
                 });
-                alert("SMS encoded successfully!");
-                document.getElementById('m-name').value = ""; 
-                document.getElementById('m-phone').value = "";
-                document.getElementById('m-lat').value = ""; 
-                document.getElementById('m-lng').value = "";
-            } catch (e) { 
-                alert("Error: " + e.message); 
-            }
+                alert("SMS encoded!");
+                document.getElementById('m-name').value = ""; document.getElementById('m-phone').value = "";
+                document.getElementById('m-lat').value = ""; document.getElementById('m-lng').value = "";
+            } catch (e) { alert("Error: " + e.message); }
         };
 
         window.markAsResolved = async (id) => { 
-            if (confirm("Mark this as RESOLVED?")) {
-                try { 
-                    await updateDoc(doc(db, "alerts", id), { 
-                        status: "Resolved", 
-                        resolved_at: serverTimestamp() 
-                    }); 
-                } catch (e) { 
-                    alert("Error updating status."); 
-                }
+            if (confirm("Mark as RESOLVED?")) {
+                try { await updateDoc(doc(db, "alerts", id), { status: "Resolved", resolved_at: serverTimestamp() }); }
+                catch (e) { alert("Error."); }
             }
         };
 
-        // --- MONITORING LOGIC ---
         function getTimeAgo(timestamp) {
             if (!timestamp) return "Just now";
             const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
@@ -177,52 +156,43 @@
             return "Just now";
         }
 
-        setInterval(() => {
-            document.querySelectorAll('.time-ago').forEach(el => {
-                const ts = el.getAttribute('data-ts');
-                if (ts) {
-                    const date = new Date(parseInt(ts));
-                    el.innerText = getTimeAgo({ toDate: () => date });
-                }
-            });
-        }, 30000);
-
+        // --- FIXED URGENCY LOGIC ---
         setInterval(() => {
             document.querySelectorAll('.card').forEach(card => {
                 if (card.classList.contains('resolved')) return;
+                
                 const timeAgoEl = card.querySelector('.time-ago');
                 const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
-                if (ts && Math.floor((new Date() - new Date(ts)) / 60000) >= 5) {
-                    if (!card.classList.contains('critical')) {
-                        card.classList.add('critical');
-                        if (!card.querySelector('.critical-label')) {
-                            const label = document.createElement('span');
-                            label.className = 'critical-label'; label.innerText = '⚠️ OVERDUE';
-                            card.appendChild(label);
+                
+                if (ts) {
+                    const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
+                    if (minutesPassed >= 5) {
+                        if (!card.classList.contains('critical')) {
+                            card.classList.add('critical');
+                            if (!card.querySelector('.critical-label')) {
+                                const label = document.createElement('span');
+                                label.className = 'critical-label';
+                                label.innerText = '⚠️ OVERDUE';
+                                card.appendChild(label);
+                            }
                         }
                     }
                 }
             });
-        }, 30000);
+        }, 10000); // Check every 10 seconds para mas responsive
 
         const siren = new Audio('siren.mp3');
-        if (Notification.permission !== "granted") Notification.requestPermission();
-        window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
-
         let isInitialLoad = true;
         const q = query(collection(db, "alerts"), where("category", "==", "Medical"), orderBy("timestamp", "desc"));
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
             let pCount = 0; let rCount = 0;
-
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
                     siren.play().catch(() => {});
-                    if (Notification.permission === "granted") new Notification("🚑 MEDICAL EMERGENCY", { body: `Sender: ${change.doc.data().sender}` });
                 }
             });
-
             isInitialLoad = false;
             list.innerHTML = "";
             snapshot.forEach((alertDoc) => {
@@ -230,23 +200,22 @@
                 data.status === "Pending" ? pCount++ : rCount++;
                 const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
                 const ts = tsDate.getTime();
-                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 
+                // Real-time check during render
+                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
+                const isCritical = data.status === "Pending" && minutesPassed >= 5;
+
                 const card = document.createElement('div');
-                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
+                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
                 card.innerHTML = `
                     <div class="warning" style="color: ${data.status === 'Resolved' ? 'var(--success)' : 'var(--primary)'};">
                         ${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}
                     </div>
-                    <div class="info"><strong>Sender:</strong> ${data.sender} ${data.source === 'Manual' ? '<b>(SMS)</b>' : ''}</div>
+                    ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
+                    <div class="info"><strong>Sender:</strong> ${data.sender}</div>
                     <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'}</div>
                     <div class="info"><strong>Received:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
-                    
-                    ${data.photo_proof && data.photo_proof !== "No photo" && data.photo_proof !== "Manual Entry (SMS)" ? 
-                        `<span style="color: #b71c1c; font-weight: bold; cursor: pointer; text-decoration: underline; font-size: 13px;" onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO</span>
-                         <img src="${data.photo_proof}" style="width: 100%; max-width: 300px; border-radius: 5px; margin-top: 8px; display: none; border: 1px solid #ddd;" onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` : ''}
-                    
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 OPEN LOCATION</a>
+                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="btn-maps">📍 OPEN LOCATION</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
