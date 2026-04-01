@@ -1,429 +1,243 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <title>PNP - Police Monitoring</title>
-
     <style>
-
         body { font-family: 'Segoe UI', sans-serif; background: #e8eaf6; margin: 0; }
-
         .nav { background: #1a237e; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: relative; }
-
         .status-indicator { position: absolute; right: 20px; top: 20px; font-size: 14px; padding: 5px 10px; border-radius: 20px; background: #4caf50; color: white; }
-
         .status-offline { background: #000; }
-
         .container { max-width: 800px; margin: auto; padding: 10px; }
 
-
-
-        /* --- ITEM #1: COUNTER DESIGN (PNP Blue Theme) --- */
-
+        /* --- COUNTER DESIGN --- */
         .counter-container { display: flex; gap: 15px; margin-bottom: 20px; margin-top: 10px; }
-
         .counter-box { 
-
             background: white; padding: 15px; border-radius: 8px; flex: 1; 
-
             box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #1a237e; 
-
         }
-
         .counter-box.resolved { border-left-color: #2e7d32; }
-
         .counter-box h3 { margin: 0; font-size: 11px; color: #888; text-transform: uppercase; }
-
         .counter-box .count { font-size: 24px; font-weight: bold; display: block; color: #333; }
 
-
+        /* --- MANUAL REPORT UI --- */
+        .manual-report-section { text-align: right; margin-bottom: 20px; }
+        .btn-open-manual { background: #3949ab; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; }
+        .modal-content h3 { margin-top: 0; color: #1a237e; }
+        .modal-content input { width: 100%; margin-top: 12px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
 
         .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #3f51b5; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
-
         .card.resolved { opacity: 0.6; border-left-color: #4caf50; }
-
         
-
-        /* --- ITEM #3: URGENCY ANIMATION (Police Blue Pulse) --- */
-
         @keyframes police-flash {
-
             0% { background-color: white; }
-
             50% { background-color: #e8eaf6; border-left-color: #1a237e; }
-
             100% { background-color: white; }
-
         }
-
         .card.critical {
-
             animation: police-flash 1.2s infinite;
-
             border-left: 15px solid #0d47a1 !important;
-
         }
-
         .critical-label {
-
             background: #0d47a1; color: white; font-size: 10px; padding: 2px 6px; 
-
             border-radius: 4px; margin-left: 10px; vertical-align: middle; font-weight: bold;
-
         }
-
-
 
         .time-ago { color: #1a237e; font-weight: bold; }
-
         .btn-maps { display: block; background: #1a237e; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
-
         .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
-
     </style>
-
 </head>
-
 <body>
 
     <div class="nav">👮 PNP POLICE DASHBOARD <span id="connection-status" class="status-indicator">ONLINE</span></div>
 
-
-
     <div class="container">
-
         <div class="counter-container">
-
             <div class="counter-box">
-
                 <h3>Pending Incidents</h3>
-
                 <span id="pending-count" class="count">0</span>
-
             </div>
-
             <div class="counter-box resolved">
-
                 <h3>Resolved Cases Today</h3>
-
                 <span id="resolved-count" class="count">0</span>
-
             </div>
-
         </div>
 
-
+        <div class="manual-report-section">
+            <button class="btn-open-manual" onclick="document.getElementById('manual-modal').style.display='flex'">➕ Manual Incident Report</button>
+        </div>
 
         <div id="alerts-list"></div>
-
     </div>
 
-
+    <div id="manual-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>New Incident Report</h3>
+            <p style="font-size: 12px; color: #666;">Enter report details manually for tracking.</p>
+            <input type="text" id="manual-sender" placeholder="Complainant/Reporter Name">
+            <input type="tel" id="manual-phone" placeholder="Contact Number">
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="manual-lat" placeholder="Latitude" step="any">
+                <input type="number" id="manual-lng" placeholder="Longitude" step="any">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button style="flex:1; padding:12px; cursor:pointer;" onclick="document.getElementById('manual-modal').style.display='none'">CANCEL</button>
+                <button id="submit-manual-btn" style="flex:2; padding:12px; background:#1a237e; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">SAVE REPORT</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-
-        import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-
+        import { getFirestore, collection, query, addDoc, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
-
         const app = initializeApp(firebaseConfig);
-
         const db = getFirestore(app);
 
-
-
-        function getTimeAgo(timestamp) {
-
-            if (!timestamp) return "Just now";
-
-            const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
-
-            let interval = Math.floor(seconds / 60);
-
-            return interval >= 1 ? interval + "m ago" : "Just now";
-
-        }
-
-
-
-        setInterval(() => {
-
-            document.querySelectorAll('.time-ago').forEach(el => {
-
-                const ts = el.getAttribute('data-ts');
-
-                if (ts) {
-
-                    const date = new Date(parseInt(ts));
-
-                    el.innerText = getTimeAgo({ toDate: () => date });
-
-                }
-
-            });
-
-        }, 30000);
-
-
-
-        // Function para i-check ang urgency ng mga cards bawat 30 seconds
-
-setInterval(() => {
-
-    document.querySelectorAll('.card').forEach(card => {
-
-        // Huwag pansinin ang mga Resolved na
-
-        if (card.classList.contains('resolved')) return;
-
-
-
-        const timeAgoEl = card.querySelector('.time-ago');
-
-        const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
-
-
-
-        if (ts) {
-
-            const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
-
-            
-
-            // Kung 5 mins o higit na, dagdagan ng 'critical' class at ipakita ang label
-
-            if (minutesPassed >= 5) {
-
-                if (!card.classList.contains('critical')) {
-
-                    card.classList.add('critical');
-
-                    
-
-                    // Dagdagan ng OVERDUE label sa header kung wala pa
-
-                    const warningDiv = card.querySelector('.warning') || card.querySelector('div[style*="font-weight:bold"]');
-
-                    if (warningDiv && !warningDiv.querySelector('.critical-label')) {
-
-                        const label = document.createElement('span');
-
-                        label.className = 'critical-label';
-
-                        label.innerText = '⚠️ OVERDUE';
-
-                        warningDiv.appendChild(label);
-
-                    }
-
-                }
-
-            }
-
-        }
-
-    });
-
-}, 30000); // Tumatakbo bawat 30 seconds
-
-
-
-        const statusEl = document.getElementById('connection-status');
-
-        window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
-
-        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
-
-
-
-        const siren = new Audio('siren.mp3');
-
-        if (Notification.permission !== "granted") Notification.requestPermission();
-
-        window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
-
-
-
-        let isInitialLoad = true;
-
-        const q = query(collection(db, "alerts"), where("category", "==", "Police"), orderBy("timestamp", "desc"));
-
-
-
-        onSnapshot(q, (snapshot) => {
-
-            const list = document.getElementById('alerts-list');
-
-            let pCount = 0;
-
-            let rCount = 0;
-
-
-
-            snapshot.docChanges().forEach((change) => {
-
-                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
-
-                    siren.play().catch(e => {});
-
-                    if (Notification.permission === "granted") new Notification("👮 POLICE ALERT", { body: `Sender: ${change.doc.data().sender}` });
-
-                }
-
-            });
-
-
-
-            isInitialLoad = false;
-
-            list.innerHTML = "";
-
-
-
-            snapshot.forEach((alertDoc) => {
-
-                const data = alertDoc.data();
-
-                
-
-                // --- ITEM #1: COUNTER LOGIC ---
-
-                if (data.status === "Pending") pCount++;
-
-                else if (data.status === "Resolved") rCount++;
-
-
-
-                const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
-
-                const ts = tsDate.getTime();
-
-
-
-                // --- ITEM #3: URGENCY LOGIC (5 mins) ---
-
-                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
-
-                const isCritical = data.status === "Pending" && minutesPassed >= 5;
-
-
-
-                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "Processing...";
-
-                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
-
-                
-
-                const card = document.createElement('div');
-
-                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
-
-                card.innerHTML = `
-
-                    <div style="color:${data.status === "Resolved" ? '#2e7d32' : '#1a237e'}; font-weight:bold;">
-
-                        ${data.status === "Resolved" ? '✅ RESOLVED' : '👮 POLICE ASSISTANCE'}
-
-                        ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
-
-                    </div>
-
-
-
-                    ${data.status === "Resolved" ? 
-
-                        `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
-
-                            <strong>Resolved on:</strong> ${resolvedTime}
-
-                        </div>` : ''}
-
-
-
-                    <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
-
-                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
-
-                    <div style="margin:5px 0;"><strong>Reported:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
-
-                    
-
-                    ${data.photo_proof && data.photo_proof !== "No photo" ?  
-
-                        `<span style="color: #1a237e; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
-
-                               onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
-
-                         <img src="${data.photo_proof}" 
-
-                              style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
-
-                              onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
-
-                        : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
-
-
-
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION ON MAPS</a>
-
-                    ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
-
-                `;
-
-                list.appendChild(card);
-
-            });
-
-
-
-            document.getElementById('pending-count').innerText = pCount;
-
-            document.getElementById('resolved-count').innerText = rCount;
-
-        });
-
-
-
-        window.markAsResolved = async (id) => { 
-
-            const confirmResolve = confirm("Are you sure you want to mark this police request as RESOLVED?");
-
-            if (confirmResolve) {
-
-                try {
-
-                    const alertRef = doc(db, "alerts", id);
-
-                    await updateDoc(alertRef, { 
-
-                        status: "Resolved",
-
-                        resolved_at: serverTimestamp()
-
-                    });
-
-                } catch (e) {
-
-                    console.error(e);
-
-                    alert("Error updating status.");
-
-                }
-
-            }
-
+        // --- Manual Report Submission ---
+        document.getElementById('submit-manual-btn').onclick = async () => {
+            const sender = document.getElementById('manual-sender').value.trim();
+            const phone = document.getElementById('manual-phone').value.trim();
+            const lat = document.getElementById('manual-lat').value.trim();
+            const lng = document.getElementById('manual-lng').value.trim();
+
+            if (!sender || !phone || !lat || !lng) { alert("Please complete all fields."); return; }
+
+            try {
+                await addDoc(collection(db, "alerts"), {
+                    sender: sender + " (Manual)",
+                    phone: phone,
+                    category: "Police",
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lng),
+                    status: "Pending",
+                    timestamp: serverTimestamp(),
+                    photo_proof: "No photo"
+                });
+                alert("Report added successfully.");
+                document.getElementById('manual-modal').style.display = 'none';
+                document.querySelectorAll('.modal-content input').forEach(input => input.value = "");
+            } catch (e) { alert("Error: " + e.message); }
         };
 
+        function getTimeAgo(timestamp) {
+            if (!timestamp) return "Just now";
+            const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
+            let interval = Math.floor(seconds / 60);
+            return interval >= 1 ? interval + "m ago" : "Just now";
+        }
+
+        setInterval(() => {
+            document.querySelectorAll('.time-ago').forEach(el => {
+                const ts = el.getAttribute('data-ts');
+                if (ts) {
+                    const date = new Date(parseInt(ts));
+                    el.innerText = getTimeAgo({ toDate: () => date });
+                }
+            });
+        }, 30000);
+
+        setInterval(() => {
+            document.querySelectorAll('.card').forEach(card => {
+                if (card.classList.contains('resolved')) return;
+                const timeAgoEl = card.querySelector('.time-ago');
+                const ts = timeAgoEl ? parseInt(timeAgoEl.getAttribute('data-ts')) : null;
+                if (ts) {
+                    const minutesPassed = Math.floor((new Date() - new Date(ts)) / 60000);
+                    if (minutesPassed >= 5 && !card.classList.contains('critical')) {
+                        card.classList.add('critical');
+                        const warningDiv = card.querySelector('div[style*="font-weight:bold"]');
+                        if (warningDiv && !warningDiv.querySelector('.critical-label')) {
+                            const label = document.createElement('span');
+                            label.className = 'critical-label';
+                            label.innerText = '⚠️ OVERDUE';
+                            warningDiv.appendChild(label);
+                        }
+                    }
+                }
+            });
+        }, 30000);
+
+        const statusEl = document.getElementById('connection-status');
+        window.addEventListener('online', () => { enableNetwork(db); statusEl.innerText = "ONLINE"; statusEl.classList.remove('status-offline'); });
+        window.addEventListener('offline', () => { disableNetwork(db); statusEl.innerText = "OFFLINE"; statusEl.classList.add('status-offline'); });
+
+        const siren = new Audio('siren.mp3');
+        if (Notification.permission !== "granted") Notification.requestPermission();
+        window.addEventListener('click', () => { siren.play().then(() => { siren.pause(); siren.currentTime = 0; }); }, { once: true });
+
+        let isInitialLoad = true;
+        const q = query(collection(db, "alerts"), where("category", "==", "Police"), orderBy("timestamp", "desc"));
+
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('alerts-list');
+            let pCount = 0; let rCount = 0;
+
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
+                    const data = change.doc.data();
+                    // --- Siren Filter: Don't play if sender contains "(Manual)" ---
+                    if (!data.sender.includes("(Manual)")) {
+                        siren.play().catch(e => {});
+                    }
+                    if (Notification.permission === "granted") new Notification("👮 POLICE ALERT", { body: `Sender: ${data.sender}` });
+                }
+            });
+
+            isInitialLoad = false;
+            list.innerHTML = "";
+
+            snapshot.forEach((alertDoc) => {
+                const data = alertDoc.data();
+                if (data.status === "Pending") pCount++; else if (data.status === "Resolved") rCount++;
+
+                const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                const ts = tsDate.getTime();
+                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
+                const isCritical = data.status === "Pending" && minutesPassed >= 5;
+                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "Processing...";
+                const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+                
+                const card = document.createElement('div');
+                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
+                card.innerHTML = `
+                    <div style="color:${data.status === "Resolved" ? '#2e7d32' : '#1a237e'}; font-weight:bold;">
+                        ${data.status === "Resolved" ? '✅ RESOLVED' : '👮 POLICE ASSISTANCE'}
+                        ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
+                    </div>
+                    ${data.status === "Resolved" ? `<div style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;"><strong>Resolved on:</strong> ${resolvedTime}</div>` : ''}
+                    <div style="margin:5px 0;"><strong>Sender:</strong> ${data.sender}</div>
+                    <div class="info"><strong>Phone:</strong> ${data.phone || 'N/A'} </div>
+                    <div style="margin:5px 0;"><strong>Reported:</strong> <span class="time-ago" data-ts="${ts}">${getTimeAgo(data.timestamp)}</span></div>
+                    ${data.photo_proof && data.photo_proof !== "No photo" ?  
+                        `<span style="color: #1a237e; font-weight: bold; cursor: pointer; text-decoration: underline; display: block; margin-top: 8px; font-size: 14px;" 
+                               onclick="this.nextElementSibling.style.display='block'; this.style.display='none'">🖼️ VIEW PHOTO PROOF</span>
+                         <img src="${data.photo_proof}" 
+                              style="width: 100%; max-width: 400px; border-radius: 8px; margin-top: 10px; display: none; border: 2px solid #ddd; cursor: zoom-out;" 
+                              onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
+                        : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION ON MAPS</a>
+                    ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            document.getElementById('pending-count').innerText = pCount;
+            document.getElementById('resolved-count').innerText = rCount;
+        });
+
+        window.markAsResolved = async (id) => { 
+            const confirmResolve = confirm("Are you sure you want to mark this police request as RESOLVED?");
+            if (confirmResolve) {
+                try {
+                    await updateDoc(doc(db, "alerts", id), { status: "Resolved", resolved_at: serverTimestamp() });
+                } catch (e) { console.error(e); alert("Error updating status."); }
+            }
+        };
     </script>
-
 </body>
-
 </html>
