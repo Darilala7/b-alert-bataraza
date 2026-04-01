@@ -20,8 +20,24 @@
         .counter-box h3 { margin: 0; font-size: 11px; color: #888; text-transform: uppercase; }
         .counter-box .count { font-size: 24px; font-weight: bold; display: block; color: #333; }
 
-        .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-left: 10px solid #2196f3; }
+        .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-left: 10px solid #2196f3; transition: 0.3s; }
         .card.resolved { border-left: 10px solid #2e7d32; opacity: 0.7; }
+        
+        /* --- ITEM #3: URGENCY ANIMATION --- */
+        @keyframes critical-flash {
+            0% { background-color: white; }
+            50% { background-color: #ffebee; border-left-color: #ff1744; }
+            100% { background-color: white; }
+        }
+        .card.critical {
+            animation: critical-flash 1.5s infinite;
+            border-left: 10px solid #ff1744 !important;
+        }
+        .critical-label {
+            background: #ff1744; color: white; font-size: 10px; padding: 2px 6px; 
+            border-radius: 4px; margin-left: 10px; vertical-align: middle; font-weight: bold;
+        }
+
         .warning { color: #1565c0; font-weight: bold; font-size: 1.2em; margin-bottom: 10px; }
         .info { margin: 5px 0; color: #333; }
         .time-ago { color: #d32f2f; font-weight: bold; font-size: 0.9em; }
@@ -92,8 +108,6 @@
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
-            
-            // --- ITEM #1: COUNTER LOGIC ---
             let pCount = 0;
             let rCount = 0;
 
@@ -109,22 +123,25 @@
 
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
-                
-                // Bilangin ang status para sa counter
                 if (data.status === "Pending") pCount++;
                 else if (data.status === "Resolved") rCount++;
 
-                const ts = data.timestamp ? data.timestamp.toDate().getTime() : new Date().getTime();
-                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
+                const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                const ts = tsDate.getTime();
                 
-                // --- ITEM #2: FIXED GOOGLE MAPS LINK ---
+                // ITEM #3: Detection if more than 5 minutes pending
+                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
+                const isCritical = data.status === "Pending" && minutesPassed >= 5;
+
+                const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "N/A";
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 
                 const card = document.createElement('div');
-                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
+                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
                 card.innerHTML = `
                     <div class="warning" style="color: ${data.status === 'Resolved' ? '#2e7d32' : '#1565c0'};">
                         ${data.status === "Resolved" ? '✅ RESOLVED' : '🚑 MEDICAL EMERGENCY'}
+                        ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
                     </div>
                     ${data.status === "Resolved" ? 
                         `<div class="info" style="font-size: 0.85em; color: #2e7d32; margin-bottom: 10px;">
@@ -146,7 +163,6 @@
                 list.appendChild(card);
             });
 
-            // I-update ang text sa counter boxes
             document.getElementById('pending-count').innerText = pCount;
             document.getElementById('resolved-count').innerText = rCount;
         });
