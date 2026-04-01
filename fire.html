@@ -1,56 +1,69 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <title>BFP - Fire Monitoring</title>
-
     <style>
-
         body { font-family: 'Segoe UI', sans-serif; background: #ffebee; margin: 0; }
-
         .nav { background: #b71c1c; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: relative; }
-
         .status-indicator { position: absolute; right: 20px; top: 20px; font-size: 14px; padding: 5px 10px; border-radius: 20px; background: #4caf50; color: white; }
-
         .status-offline { background: #000; }
-
         .container { max-width: 800px; margin: auto; padding: 10px; }
 
-        .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #f44336; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        /* --- ITEM #1: COUNTER DESIGN (BFP Theme) --- */
+        .counter-container { display: flex; gap: 15px; margin-bottom: 20px; margin-top: 10px; }
+        .counter-box { 
+            background: white; padding: 15px; border-radius: 8px; flex: 1; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #b71c1c; 
+        }
+        .counter-box.resolved { border-left-color: #2e7d32; }
+        .counter-box h3 { margin: 0; font-size: 11px; color: #888; text-transform: uppercase; }
+        .counter-box .count { font-size: 24px; font-weight: bold; display: block; color: #333; }
 
+        .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 12px solid #f44336; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
         .card.resolved { opacity: 0.6; border-left-color: #4caf50; }
+        
+        /* --- ITEM #3: URGENCY ANIMATION --- */
+        @keyframes fire-flash {
+            0% { background-color: white; }
+            50% { background-color: #fff3e0; border-left-color: #ff5722; }
+            100% { background-color: white; }
+        }
+        .card.critical {
+            animation: fire-flash 1.2s infinite;
+            border-left: 15px solid #ff5722 !important;
+        }
+        .critical-label {
+            background: #ff5722; color: white; font-size: 10px; padding: 2px 6px; 
+            border-radius: 4px; margin-left: 10px; vertical-align: middle; font-weight: bold;
+        }
 
         .time-ago { color: #b71c1c; font-weight: bold; }
-
         .btn-maps { display: block; background: #b71c1c; color: white; text-decoration: none; padding: 12px; border-radius: 5px; font-weight: bold; margin-top: 15px; text-align: center; }
-
         .btn-resolved { background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; width: 100%; }
-
-        
-
         .photo-container { margin-top: 12px; text-align: center; }
-
-        .photo-thumb { width: 100%; max-height: 250px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 1px solid #b71c1c; }
-
     </style>
-
 </head>
-
 <body>
-
     <div class="nav">🚒 BFP FIRE DASHBOARD <span id="connection-status" class="status-indicator">ONLINE</span></div>
+    
+    <div class="container">
+        <div class="counter-container">
+            <div class="counter-box">
+                <h3>Active Fire Reports</h3>
+                <span id="pending-count" class="count">0</span>
+            </div>
+            <div class="counter-box resolved">
+                <h3>Fire Resolved Today</h3>
+                <span id="resolved-count" class="count">0</span>
+            </div>
+        </div>
 
-    <div class="container" id="alerts-list"></div>
-
-
+        <div id="alerts-list"></div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // Dinagdagan ng serverTimestamp sa imports
         import { getFirestore, collection, query, where, orderBy, onSnapshot, doc, updateDoc, enableNetwork, disableNetwork, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyAqXw1f4IpeBYwgTNkpL94kyv6EOyO8VZk", projectId: "b-alert-bataraza" };
@@ -64,7 +77,6 @@
             return interval >= 1 ? interval + "m ago" : "Just now";
         }
 
-        // Update timers every 30 seconds
         setInterval(() => {
             document.querySelectorAll('.time-ago').forEach(el => {
                 const ts = el.getAttribute('data-ts');
@@ -88,29 +100,44 @@
 
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('alerts-list');
+            let pCount = 0;
+            let rCount = 0;
+
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added" && !isInitialLoad && change.doc.data().status === "Pending") {
                     siren.play().catch(e => {});
                     if (Notification.permission === "granted") new Notification("🔥 FIRE ALERT", { body: `Sender: ${change.doc.data().sender}` });
                 }
             });
+
             isInitialLoad = false;
             list.innerHTML = "";
+
             snapshot.forEach((alertDoc) => {
                 const data = alertDoc.data();
-                const ts = data.timestamp ? data.timestamp.toDate().getTime() : new Date().getTime();
+                
+                // --- ITEM #1: COUNTER LOGIC ---
+                if (data.status === "Pending") pCount++;
+                else if (data.status === "Resolved") rCount++;
 
-                // Kunin ang resolved_at time
+                const tsDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                const ts = tsDate.getTime();
+
+                // --- ITEM #3: URGENCY LOGIC (5 mins check) ---
+                const minutesPassed = Math.floor((new Date() - tsDate) / 60000);
+                const isCritical = data.status === "Pending" && minutesPassed >= 5;
+
                 const resolvedTime = data.resolved_at ? data.resolved_at.toDate().toLocaleString('en-PH') : "Processing...";
-
-                // FIXED: Inayos ang Maps Link (${data.latitude} imbes na 0{data.latitude})
+                
+                // --- ITEM #2: FIXED GOOGLE MAPS LINK ---
                 const gMapsLink = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                 
                 const card = document.createElement('div');
-                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''}`;
+                card.className = `card ${data.status === "Resolved" ? 'resolved' : ''} ${isCritical ? 'critical' : ''}`;
                 card.innerHTML = `
                     <div style="color:${data.status === "Resolved" ? '#2e7d32' : '#b71c1c'}; font-weight:bold;">
                         ${data.status === "Resolved" ? '✅ RESOLVED' : '🔥 FIRE INCIDENT'}
+                        ${isCritical ? '<span class="critical-label">⚠️ OVERDUE</span>' : ''}
                     </div>
 
                     ${data.status === "Resolved" ? 
@@ -130,14 +157,17 @@
                               onclick="this.style.display='none'; this.previousElementSibling.style.display='block'">` 
                         : '<div style="margin:5px 0;"><em>No photo provided</em></div>'}
 
-                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION</a>
+                    <a href="${gMapsLink}" target="_blank" class="btn-maps">📍 VIEW LOCATION ON MAPS</a>
                     ${data.status !== "Resolved" ? `<button class="btn-resolved" onclick="markAsResolved('${alertDoc.id}')">MARK AS RESOLVED</button>` : ''}
                 `;
                 list.appendChild(card);
             });
+
+            // I-update ang UI counters
+            document.getElementById('pending-count').innerText = pCount;
+            document.getElementById('resolved-count').innerText = rCount;
         });
 
-        // FIXED: May confirmation prompt at serverTimestamp
         window.markAsResolved = async (id) => { 
             const confirmResolve = confirm("Are you sure you want to mark this fire incident as RESOLVED?");
             if (confirmResolve) {
@@ -155,5 +185,4 @@
         };
     </script>
 </body>
-
 </html>
